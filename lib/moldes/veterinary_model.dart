@@ -5,6 +5,10 @@ class VeterinaryModel {
   String telefono;
   String nit;
   String correo;
+  String? departamento;
+  String? ciudad;
+  String? horarioLV;
+  String? horarioSab;
 
   VeterinaryModel({
     this.id,
@@ -13,6 +17,11 @@ class VeterinaryModel {
     required this.telefono,
     required this.nit,
     required this.correo,
+    this.departamento,
+    this.ciudad,
+    this.horarioLV,
+    this.horarioSab,
+
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +31,10 @@ class VeterinaryModel {
       'telefono': telefono,
       'nit': nit,
       'correo': correo,
+      'departamento': departamento,
+      'ciudad': ciudad,
+      'horarioLV': horarioLV,
+      'horarioSab': horarioSab,
     };
   }
 
@@ -33,6 +46,10 @@ class VeterinaryModel {
       telefono: map['telefono'] ?? '',
       nit: map['nit'] ?? '',
       correo: map['correo'] ?? '',
+      departamento: map['departamento'],
+      ciudad: map['ciudad'],
+      horarioLV: map['horarioLV'],
+      horarioSab: map['horarioSab'],
     );
   }
 }

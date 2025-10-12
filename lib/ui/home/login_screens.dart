@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:veterinaria_movil/ui/home/customer_menu_screen.dart';
-import 'package:veterinaria_movil/ui/home/veterinary_menu_screen.dart';
+import 'package:veterinaria_movil/ui/home/customer_interface/screens/customer_menu_screen.dart';
+import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_menu_screen.dart';
 import 'package:veterinaria_movil/ui/select_user_screen.dart';
 
 class LoginScreens extends StatelessWidget {
