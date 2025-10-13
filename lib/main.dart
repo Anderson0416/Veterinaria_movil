@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:veterinaria_movil/controllers/veterinarian_controller.dart';
 import 'package:veterinaria_movil/controllers/add_user_controllers.dart';
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
 import 'package:veterinaria_movil/controllers/veterinary_controller.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
   Get.put(AddUserControllers());
   Get.put(CustomerController());
   Get.put(VeterinaryController());
+  Get.put(VeterinarianController());
   runApp(const MyApp());
 }
 

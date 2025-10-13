@@ -1,6 +1,6 @@
 // lib/moldes/customer_model.dart
 class Customer {
-  String? id; // id del documento en Firestore (opcional)
+  String? id; 
   String nombre;
   String apellido;
   String email;

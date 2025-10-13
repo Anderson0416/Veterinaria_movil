@@ -1,12 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/screens/customer_menu_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_menu_screen.dart';
+import 'package:veterinaria_movil/ui/home/veterinarian_menu_screen.dart';
 import 'package:veterinaria_movil/ui/select_user_screen.dart';
 
 class LoginScreens extends StatelessWidget {
   const LoginScreens({super.key});
+
+  Future<void> _login(String email, String password) async {
+    if (email.isEmpty || password.isEmpty) {
+      Get.snackbar(
+        "Error",
+        "Ingresa usuario y contraseña",
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.7),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Mostrar indicador de carga
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
+
+    try {
+      // 🔹 Inicia sesión con FirebaseAuth
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
+
+      final user = userCredential.user;
+      if (user == null) throw Exception("Usuario no encontrado");
+
+      // 🔹 Buscar el documento del usuario en las colecciones
+      final firestore = FirebaseFirestore.instance;
+      DocumentSnapshot? userDoc;
+      String role = '';
+
+      // Buscar en veterinarias
+      userDoc = await firestore.collection('veterinarias').doc(user.uid).get();
+      if (userDoc.exists) {
+        role = 'veterinaria';
+      } else {
+        // Buscar en veterinarios
+        userDoc = await firestore.collection('veterinarians').doc(user.uid).get();
+        if (userDoc.exists) {
+          role = 'veterinario';
+        } else {
+          // Buscar en clientes
+          userDoc = await firestore.collection('customers').doc(user.uid).get();
+          if (userDoc.exists) {
+            role = 'cliente';
+          }
+        }
+      }
+
+      // Si no encontró el documento en ninguna colección
+      if (!userDoc.exists) {
+        if (Get.isDialogOpen ?? false) Get.back();
+        Get.snackbar(
+          "Error",
+          "No se encontró el perfil del usuario en la base de datos",
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Cerrar el loading
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      // 🔹 Redirección según el rol encontrado
+      switch (role.toLowerCase()) {
+        case 'veterinaria':
+          Get.off(() => const VeterinaryMenuScreen());
+          break;
+        case 'veterinario':
+          Get.off(() => const VeterinarianMenuScreen());
+          break;
+        case 'cliente':
+          Get.off(() => const CustomerMenuScreen());
+          break;
+        default:
+          Get.snackbar(
+            "Error",
+            "Rol no válido o desconocido: $role",
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.red.withOpacity(0.8),
+            colorText: Colors.white,
+          );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar(
+        "Error de autenticación",
+        e.message ?? "Credenciales inválidas",
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar(
+        "Error",
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +158,12 @@ class LoginScreens extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Sugerencia: el label dice "Usuario" pero aquí se espera un correo
               TextField(
                 controller: userController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person_outline),
-                  labelText: "Usuario (correo)",
+                  labelText: "Correo electrónico",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -87,62 +194,11 @@ class LoginScreens extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-
-                  // --------- LOGIN REAL con FirebaseAuth ----------
                   onPressed: () async {
-                    final email = userController.text.trim();
-                    final password = passController.text;
-
-                    if (email.isEmpty || password.isEmpty) {
-                      Get.snackbar(
-                        "Error",
-                        "Ingresa usuario y contraseña",
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: Colors.red.withOpacity(0.7),
-                        colorText: Colors.white,
-                      );
-                      return;
-                    }
-
-                    // muestra un diálogo de carga simple
-                    Get.dialog(
-                      const Center(child: CircularProgressIndicator()),
-                      barrierDismissible: false,
+                    await _login(
+                      userController.text.trim(),
+                      passController.text,
                     );
-
-                    try {
-                      // intenta autenticar con Firebase
-                      await FirebaseAuth.instance.signInWithEmailAndPassword(
-                        email: email,
-                        password: password,
-                      );
-
-                      // cerrar indicador
-                      if (Get.isDialogOpen ?? false) Get.back();
-
-                      // redirección (por ahora seguimos con la regla simple)
-                      if (email.toLowerCase().startsWith("vet")) {
-                        Get.off(() => const VeterinaryMenuScreen());
-                      } else {
-                        Get.off(() => const CustomerMenuScreen());
-                      }
-                    } on FirebaseAuthException catch (e) {
-                      if (Get.isDialogOpen ?? false) Get.back();
-                      Get.snackbar(
-                        "Error de autenticación",
-                        e.message ?? "Credenciales inválidas",
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: Colors.red.withOpacity(0.8),
-                        colorText: Colors.white,
-                      );
-                    } catch (e) {
-                      if (Get.isDialogOpen ?? false) Get.back();
-                      Get.snackbar(
-                        "Error",
-                        e.toString(),
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                    }
                   },
                   child: const Text(
                     "Iniciar Sesión",
@@ -150,12 +206,10 @@ class LoginScreens extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 15),
 
               TextButton(
                 onPressed: () {
-                  // 👇 Mostrar SelectUserScreen como ventana emergente
                   Get.dialog(
                     Dialog(
                       shape: RoundedRectangleBorder(
