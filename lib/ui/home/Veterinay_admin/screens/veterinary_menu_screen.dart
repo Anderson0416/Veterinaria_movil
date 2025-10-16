@@ -72,16 +72,34 @@ class VeterinaryMenuScreen extends StatelessWidget {
             // 👇 Sección de estadísticas
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
+                // Tarjeta dinámica que muestra la cantidad de veterinarios registrados
                 Expanded(
-                  child: AdminStatCard(
-                    title: "Personal",
-                    value: "12",
-                    icon: Icons.people,
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('veterinarians')
+                        .where('veterinaryId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      String value = '0';
+                      if (snapshot.hasError) {
+                        value = '-';
+                      } else if (snapshot.connectionState == ConnectionState.waiting) {
+                        value = '...';
+                      } else {
+                        value = (snapshot.data?.size ?? 0).toString();
+                      }
+
+                      return AdminStatCard(
+                        title: 'Personal',
+                        value: value,
+                        icon: Icons.people,
+                      );
+                    },
                   ),
                 ),
-                SizedBox(width: 12),
-                Expanded(
+                const SizedBox(width: 12),
+                const Expanded(
                   child: AdminStatCard(
                     title: "Citas Mes",
                     value: "85",

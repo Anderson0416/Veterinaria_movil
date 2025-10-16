@@ -4,11 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../../../controllers/veterinarian_controller.dart';
-import '../../../../controllers/add_user_controllers.dart';
 import '../../../../moldes/veterinarian_models.dart';
 
 class StaffForm extends StatefulWidget {
-  const StaffForm({super.key});
+  final VoidCallback? onRegistered;
+
+  const StaffForm({super.key, this.onRegistered});
 
   @override
   State<StaffForm> createState() => _StaffFormState();
@@ -16,7 +17,6 @@ class StaffForm extends StatefulWidget {
 
 class _StaffFormState extends State<StaffForm> {
   final _vetController = Get.find<VeterinarianController>();
-  final _userController = Get.put(AddUserControllers());
 
   // Controladores de texto
   final nombreCtrl = TextEditingController();
@@ -88,6 +88,7 @@ class _StaffFormState extends State<StaffForm> {
 
       // 🔹 Registrar datos del veterinario
       final nuevoVet = VeterinarianModel(
+        id: newUser.uid,
         nombre: nombreCtrl.text.trim(),
         apellido: apellidoCtrl.text.trim(),
         email: emailCtrl.text.trim(),
@@ -105,11 +106,18 @@ class _StaffFormState extends State<StaffForm> {
       await _vetController.addVeterinarian(nuevoVet);
 
       // 🔹 Cerrar sesión secundaria (NO afecta la actual)
+      await Future.delayed(const Duration(milliseconds: 800));
+
       await secondaryAuth.signOut();
+
+      await Future.delayed(const Duration(milliseconds: 800));
+
       await secondaryApp.delete();
 
       _limpiarCampos();
-      Get.snackbar("Éxito", "Veterinario registrado correctamente ✅");
+  // Notificar al widget padre que se registró correctamente
+  widget.onRegistered?.call();
+  Get.snackbar("Éxito", "Veterinario registrado correctamente ✅");
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Error", e.message ?? "Error al registrar veterinario");
     } catch (e) {

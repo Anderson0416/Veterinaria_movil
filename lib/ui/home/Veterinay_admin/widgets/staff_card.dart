@@ -7,7 +7,7 @@ class StaffCard extends StatelessWidget {
   final String telefono;
   final bool activo;
   final VoidCallback onEditar;
-  final VoidCallback onPermisos;
+  final VoidCallback onEliminar;
 
   const StaffCard({
     super.key,
@@ -17,7 +17,7 @@ class StaffCard extends StatelessWidget {
     required this.telefono,
     required this.activo,
     required this.onEditar,
-    required this.onPermisos,
+    required this.onEliminar,
   });
 
   @override
@@ -65,7 +65,20 @@ class StaffCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: onEliminar,
+                        icon: const Icon(Icons.delete, size: 18),
+                        label: const Text("Eliminar"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],

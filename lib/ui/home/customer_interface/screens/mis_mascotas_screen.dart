@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/pet_card.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/pet_form_dialog.dart';
+import 'package:veterinaria_movil/controllers/pet_controller.dart';
+import 'package:veterinaria_movil/moldes/pet_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MisMascotasScreen extends StatefulWidget {
   const MisMascotasScreen({super.key});
@@ -11,23 +14,10 @@ class MisMascotasScreen extends StatefulWidget {
 }
 
 class _MisMascotasScreenState extends State<MisMascotasScreen> {
-  List<Map<String, dynamic>> mascotas = [
-    {
-      "nombre": "Max",
-      "raza": "Golden Retriever",
-      "edad": "3 años",
-      "tipo": "Perro"
-    },
-
-  ];
+  final petController = Get.find<PetController>();
 
   void _agregarMascota() async {
     await Get.dialog(const PetFormDialog());
-  }
-
-  void _eliminarMascota(int index) {
-    setState(() => mascotas.removeAt(index));
-    Get.snackbar("Eliminado", "La mascota ha sido eliminada ");
   }
 
   @override
@@ -43,24 +33,53 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                itemCount: mascotas.length,
-                itemBuilder: (context, index) {
-                  final mascota = mascotas[index];
-                  return PetCard(
-                    nombre: mascota["nombre"],
-                    raza: mascota["raza"],
-                    edad: mascota["edad"],
-                    tipo: mascota["tipo"],
-                    onEditar: () {
-                      Get.dialog(
-                        PetFormDialog(
-                          mascota: mascota,
-                          modoEditar: true,
-                        ),
+              child: StreamBuilder<List<PetModel>>(
+                stream: petController.getPetsStream(FirebaseAuth.instance.currentUser?.uid ?? ''),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Colors.green));
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: \$snapshot.error'));
+                  }
+                  final mascotas = snapshot.data ?? [];
+                  if (mascotas.isEmpty) {
+                    return Center(child: Text('No hay mascotas registradas aún', style: TextStyle(color: Colors.black54)));
+                  }
+
+                  return ListView.builder(
+                    itemCount: mascotas.length,
+                    itemBuilder: (context, index) {
+                      final mascota = mascotas[index];
+                      return PetCard(
+                        nombre: mascota.nombre,
+                        raza: mascota.raza,
+                        edad: mascota.edad,
+                        tipo: mascota.tipo,
+                        onEditar: () {
+                          Get.dialog(PetFormDialog(mascota: {
+                            'id': mascota.id,
+                            'nombre': mascota.nombre,
+                            'raza': mascota.raza,
+                            'edad': mascota.edad,
+                            'tipo': mascota.tipo,
+                          }, modoEditar: true));
+                        },
+                        onEliminar: () async {
+                          final confirm = await Get.dialog<bool>(AlertDialog(
+                            title: const Text('Confirmar'),
+                            content: Text('¿Eliminar a \'\${mascota.nombre}\' ?'),
+                            actions: [
+                              TextButton(onPressed: () => Get.back(result: false), child: const Text('Cancelar')),
+                              ElevatedButton(onPressed: () => Get.back(result: true), child: const Text('Eliminar')),
+                            ],
+                          ));
+                          if (confirm == true && mascota.id != null) {
+                            await petController.deletePet(mascota.id!);
+                          }
+                        },
                       );
                     },
-                    onEliminar: () => _eliminarMascota(index),
                   );
                 },
               ),

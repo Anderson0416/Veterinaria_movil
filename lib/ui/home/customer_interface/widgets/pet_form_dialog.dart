@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:veterinaria_movil/controllers/pet_controller.dart';
+import 'package:veterinaria_movil/moldes/pet_model.dart';
 
 class PetFormDialog extends StatelessWidget {
   final Map<String, dynamic>? mascota;
@@ -79,6 +80,7 @@ class PetFormDialog extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () async {
                         try {
+                          final petController = Get.find<PetController>();
                           final user = FirebaseAuth.instance.currentUser;
 
                           if (user == null) {
@@ -88,20 +90,18 @@ class PetFormDialog extends StatelessWidget {
 
                           final duenoId = user.uid;
 
-                          // 🔹 Referencia a la colección "pets"
-                          final petsRef = FirebaseFirestore.instance.collection('pets');
-
                           if (modoEditar && mascota?['id'] != null) {
-                            // 🔸 Actualizar documento existente
-                            await petsRef.doc(mascota!['id']).update({
-                              'nombre': nombreCtrl.text.trim(),
-                              'raza': razaCtrl.text.trim(),
-                              'edad': edadCtrl.text.trim(),
-                              'tipo': tipoCtrl.text.trim(),
-                              'duenoId': duenoId,
-                              'fechaActualizacion': FieldValue.serverTimestamp(),
-                            });
+                            final id = mascota!['id'] as String;
+                            final updatedPet = PetModel(
+                              id: id,
+                              nombre: nombreCtrl.text.trim(),
+                              raza: razaCtrl.text.trim(),
+                              edad: edadCtrl.text.trim(),
+                              tipo: tipoCtrl.text.trim(),
+                              duenoId: duenoId,
+                            );
 
+                            await petController.updatePet(id, updatedPet);
                             Get.back();
                             Get.snackbar(
                               "Actualizado",
@@ -110,16 +110,15 @@ class PetFormDialog extends StatelessWidget {
                               backgroundColor: Colors.green.shade100,
                             );
                           } else {
-                            // 🔸 Crear nuevo documento
-                            await petsRef.add({
-                              'nombre': nombreCtrl.text.trim(),
-                              'raza': razaCtrl.text.trim(),
-                              'edad': edadCtrl.text.trim(),
-                              'tipo': tipoCtrl.text.trim(),
-                              'duenoId': duenoId,
-                              'fechaRegistro': FieldValue.serverTimestamp(),
-                            });
+                            final newPet = PetModel(
+                              nombre: nombreCtrl.text.trim(),
+                              raza: razaCtrl.text.trim(),
+                              edad: edadCtrl.text.trim(),
+                              tipo: tipoCtrl.text.trim(),
+                              duenoId: duenoId,
+                            );
 
+                            await petController.addPet(newPet);
                             Get.back();
                             Get.snackbar(
                               "Registrado",

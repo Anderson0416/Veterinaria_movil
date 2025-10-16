@@ -28,7 +28,11 @@ class VeterinarianController extends GetxController {
   // 🟢 Agregar veterinario
   Future<void> addVeterinarian(VeterinarianModel veterinarian) async {
     try {
-      await _db.collection('veterinarians').add(veterinarian.toMap());
+      if (veterinarian.id != null && veterinarian.id!.isNotEmpty) {
+        await _db.collection('veterinarians').doc(veterinarian.id).set(veterinarian.toMap());
+      } else {
+        await _db.collection('veterinarians').add(veterinarian.toMap());
+      }
       Get.snackbar('Éxito', 'Veterinario registrado correctamente');
     } catch (e) {
       Get.snackbar('Error', 'No se pudo registrar el veterinario: $e');

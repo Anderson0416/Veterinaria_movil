@@ -10,7 +10,7 @@ class PetController extends GetxController {
   // 🔹 Obtener flujo de mascotas (para mostrar en tiempo real)
   Stream<List<PetModel>> getPetsStream(String duenoId) {
     return _db
-        .collection('pets_controller')
+        .collection('pets')
         .where('duenoId', isEqualTo: duenoId)
         .snapshots()
         .map((snapshot) {
@@ -29,7 +29,7 @@ class PetController extends GetxController {
         return;
       }
 
-      await _db.collection('pets_controller').add(pet.toMap());
+  await _db.collection('pets').add(pet.toMap());
       Get.snackbar('Éxito', 'Mascota registrada correctamente');
     } catch (e) {
       Get.snackbar('Error', 'No se pudo registrar la mascota: $e');
@@ -39,7 +39,7 @@ class PetController extends GetxController {
   // 🔹 Actualizar mascota
   Future<void> updatePet(String id, PetModel pet) async {
     try {
-      await _db.collection('pets_controller').doc(id).update(pet.toMap());
+  await _db.collection('pets').doc(id).update(pet.toMap());
       Get.snackbar('Éxito', 'Mascota actualizada correctamente');
     } catch (e) {
       Get.snackbar('Error', 'No se pudo actualizar la mascota: $e');
@@ -49,7 +49,7 @@ class PetController extends GetxController {
   // 🔹 Eliminar mascota
   Future<void> deletePet(String id) async {
     try {
-      await _db.collection('pets_controller').doc(id).delete();
+  await _db.collection('pets').doc(id).delete();
       Get.snackbar('Éxito', 'Mascota eliminada correctamente');
     } catch (e) {
       Get.snackbar('Error', 'No se pudo eliminar la mascota: $e');
@@ -59,7 +59,7 @@ class PetController extends GetxController {
   // 🔹 Obtener una mascota por ID
   Future<PetModel?> getPetById(String id) async {
     try {
-      final doc = await _db.collection('pets_controller').doc(id).get();
+  final doc = await _db.collection('pets').doc(id).get();
       if (doc.exists) {
         return PetModel.fromMap(doc.data()!, doc.id);
       }

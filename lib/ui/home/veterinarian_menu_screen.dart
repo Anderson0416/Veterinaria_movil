@@ -32,8 +32,8 @@ class VeterinarianMenuScreen extends StatelessWidget {
 
       // Buscar veterinaria asociada
       VeterinaryModel? veterinary;
-      if (veterinarian.veterinaryId != null && veterinarian.veterinaryId!.isNotEmpty) {
-        veterinary = await veterinaryController.getVeterinaryById(veterinarian.veterinaryId!);
+      if (veterinarian.veterinaryId.isNotEmpty) {
+        veterinary = await veterinaryController.getVeterinaryById(veterinarian.veterinaryId);
       }
 
       // Mostrar datos en un AlertDialog

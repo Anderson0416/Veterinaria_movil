@@ -10,8 +10,8 @@ class VeterinarianModel {
   String departamento;
   String ciudad;
   String direccion;
-  String especialidad; // 🆕 Campo agregado
-  String veterinaryId; // 🔗 ID de la veterinaria asociada
+  String especialidad; 
+  String veterinaryId; 
 
   VeterinarianModel({
     this.id,
@@ -25,7 +25,7 @@ class VeterinarianModel {
     required this.departamento,
     required this.ciudad,
     required this.direccion,
-    required this.especialidad, // 🆕
+    required this.especialidad, // 
     required this.veterinaryId,
   });
 
