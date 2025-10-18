@@ -1,30 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
 import 'package:veterinaria_movil/moldes/customer_model.dart';
 import 'package:veterinaria_movil/ui/home/login_screens.dart';
 
-class RegisterCustomerScreen extends StatelessWidget {
+class RegisterCustomerScreen extends StatefulWidget {
   const RegisterCustomerScreen({super.key});
 
   @override
+  State<RegisterCustomerScreen> createState() => _RegisterCustomerScreenState();
+}
+
+class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
+  // Controladores de texto
+  final nombreCtrl = TextEditingController();
+  final apellidoCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final telCtrl = TextEditingController();
+  final fechaCtrl = TextEditingController();
+  DateTime? selectedFecha;
+  final docNumCtrl = TextEditingController();
+  final direccionCtrl = TextEditingController();
+
+  String tipoDoc = "CC";
+  String departamento = "Antioquia";
+  String ciudad = "Medellín";
+
+  late final CustomerController customerController;
+
+  @override
+  void initState() {
+    super.initState();
+    customerController = Get.find();
+  }
+
+  @override
+  void dispose() {
+    nombreCtrl.dispose();
+    apellidoCtrl.dispose();
+    emailCtrl.dispose();
+    telCtrl.dispose();
+    fechaCtrl.dispose();
+    docNumCtrl.dispose();
+    direccionCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Controladores de texto
-    final nombreCtrl = TextEditingController();
-    final apellidoCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final telCtrl = TextEditingController();
-    final fechaCtrl = TextEditingController();
-    final docNumCtrl = TextEditingController();
-    final direccionCtrl = TextEditingController();
-
-    String tipoDoc = "CC";
-    String departamento = "Antioquia";
-    String ciudad = "Medellín";
-
-    final CustomerController customerController = Get.find();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Registro Cliente"),
@@ -44,7 +69,29 @@ class RegisterCustomerScreen extends StatelessWidget {
                 _input(emailCtrl, "Correo electrónico", icon: Icons.email),
                 _input(telCtrl, "Teléfono", icon: Icons.phone),
                 _input(fechaCtrl, "Fecha de nacimiento (dd/mm/aaaa)",
-                    icon: Icons.calendar_today),
+                    icon: Icons.calendar_today,
+                    readOnly: true,
+                    onTap: () async {
+                  // Mostrar date picker
+                  final now = DateTime.now();
+                  final firstDate = DateTime(1900);
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedFecha ?? DateTime(now.year - 20),
+                    firstDate: firstDate,
+                    lastDate: now,
+                    helpText: 'Selecciona fecha de nacimiento',
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      selectedFecha = picked;
+                      // Formato dinámico según locale del dispositivo
+                      final locale = Localizations.localeOf(context).toString();
+                      final formatted = DateFormat.yMMMMd(locale).format(picked);
+                      fechaCtrl.text = formatted;
+                    });
+                  }
+                }),
               ],
             ),
             const SizedBox(height: 20),
@@ -187,11 +234,15 @@ class RegisterCustomerScreen extends StatelessWidget {
   // --- Widgets reutilizables ---
 
   Widget _input(TextEditingController controller, String label,
-      {IconData icon = Icons.text_fields}) {
+      {IconData icon = Icons.text_fields,
+      bool readOnly = false,
+      VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: Colors.green),

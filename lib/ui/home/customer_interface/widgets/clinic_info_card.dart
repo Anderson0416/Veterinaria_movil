@@ -24,15 +24,6 @@ class ClinicInfoCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/clinic.png', // imagen local o genérica
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
-            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
