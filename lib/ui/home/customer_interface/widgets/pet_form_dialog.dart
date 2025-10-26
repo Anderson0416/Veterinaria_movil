@@ -4,21 +4,72 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:veterinaria_movil/controllers/pet_controller.dart';
+import 'package:veterinaria_movil/controllers/animal_type_controller.dart';
+import 'package:veterinaria_movil/controllers/breed_controller.dart';
 import 'package:veterinaria_movil/moldes/pet_model.dart';
+import 'package:veterinaria_movil/moldes/breed_model.dart';
+import 'package:veterinaria_movil/moldes/animal_type_model.dart';
 
-class PetFormDialog extends StatelessWidget {
+class PetFormDialog extends StatefulWidget {
   final Map<String, dynamic>? mascota;
   final bool modoEditar;
 
   const PetFormDialog({super.key, this.mascota, this.modoEditar = false});
 
   @override
-  Widget build(BuildContext context) {
-    final nombreCtrl = TextEditingController(text: mascota?['nombre'] ?? '');
-    final razaCtrl = TextEditingController(text: mascota?['raza'] ?? '');
-    final edadCtrl = TextEditingController(text: mascota?['edad'] ?? '');
-    final tipoCtrl = TextEditingController(text: mascota?['tipo'] ?? '');
+  State<PetFormDialog> createState() => _PetFormDialogState();
+}
 
+class _PetFormDialogState extends State<PetFormDialog> {
+  final nombreCtrl = TextEditingController();
+  final edadCtrl = TextEditingController();
+
+  String? selectedTipoId;
+  String? selectedRazaId;
+
+  List<AnimalTypeModel> tiposAnimales = [];
+  List<BreedModel> razas = [];
+
+  late final AnimalTypeController animalTypeController;
+  late final BreedController breedController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (!Get.isRegistered<AnimalTypeController>()) {
+      Get.put(AnimalTypeController());
+    }
+    if (!Get.isRegistered<BreedController>()) {
+      Get.put(BreedController());
+    }
+
+    animalTypeController = Get.find<AnimalTypeController>();
+    breedController = Get.find<BreedController>();
+
+    nombreCtrl.text = widget.mascota?['nombre'] ?? '';
+    edadCtrl.text = widget.mascota?['edad'] ?? '';
+
+    _loadTipos();
+
+    if (widget.modoEditar) {
+      selectedTipoId = widget.mascota?['tipo'];
+      selectedRazaId = widget.mascota?['raza'];
+    }
+  }
+
+  Future<void> _loadTipos() async {
+    tiposAnimales = await animalTypeController.getAnimalTypes();
+    setState(() {});
+  }
+
+  Future<void> _loadRazas(String tipoId) async {
+    razas = await breedController.getBreedsByAnimalType(tipoId);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.all(20),
@@ -30,7 +81,9 @@ class PetFormDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                modoEditar ? "Editar Mascota" : "Registrar Nueva Mascota",
+                widget.modoEditar
+                    ? "Editar Mascota"
+                    : "Registrar Nueva Mascota",
                 style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
@@ -38,6 +91,7 @@ class PetFormDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
+              // ✅ Nombre
               TextField(
                 controller: nombreCtrl,
                 decoration: const InputDecoration(
@@ -47,15 +101,56 @@ class PetFormDialog extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              TextField(
-                controller: razaCtrl,
+              // ✅ Tipo (ComboBox)
+              DropdownButtonFormField<String>(
+                value: selectedTipoId,
                 decoration: const InputDecoration(
-                  labelText: "Raza / Especie",
+                  labelText: "Tipo de Animal",
                   border: OutlineInputBorder(),
                 ),
+                items: tiposAnimales
+                    .map(
+                      (tipo) => DropdownMenuItem<String>(
+                        value: tipo.id,
+                        child: Text(tipo.nombre),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) async {
+                  setState(() {
+                    selectedTipoId = value;
+                    selectedRazaId = null;
+                    razas.clear();
+                  });
+                  if (value != null) {
+                    await _loadRazas(value);
+                  }
+                },
               ),
               const SizedBox(height: 10),
 
+              // ✅ Raza (ComboBox filtrado)
+              DropdownButtonFormField<String>(
+                value: selectedRazaId,
+                decoration: const InputDecoration(
+                  labelText: "Raza",
+                  border: OutlineInputBorder(),
+                ),
+                items: razas
+                    .map(
+                      (raza) => DropdownMenuItem<String>(
+                        value: raza.nombre,
+                        child: Text(raza.nombre),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() => selectedRazaId = value);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // ✅ Edad
               TextField(
                 controller: edadCtrl,
                 decoration: const InputDecoration(
@@ -63,17 +158,9 @@ class PetFormDialog extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 10),
-
-              TextField(
-                controller: tipoCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Tipo (Perro, Gato, etc.)",
-                  border: OutlineInputBorder(),
-                ),
-              ),
               const SizedBox(height: 20),
 
+              // ✅ Botones
               Row(
                 children: [
                   Expanded(
@@ -90,14 +177,19 @@ class PetFormDialog extends StatelessWidget {
 
                           final duenoId = user.uid;
 
-                          if (modoEditar && mascota?['id'] != null) {
-                            final id = mascota!['id'] as String;
+                          // ✅ Buscar el nombre del tipo seleccionado
+                          final tipoSeleccionado = tiposAnimales
+                              .firstWhereOrNull((t) => t.id == selectedTipoId);
+                          final tipoNombre = tipoSeleccionado?.nombre ?? '';
+
+                          if (widget.modoEditar && widget.mascota?['id'] != null) {
+                            final id = widget.mascota!['id'] as String;
                             final updatedPet = PetModel(
                               id: id,
                               nombre: nombreCtrl.text.trim(),
-                              raza: razaCtrl.text.trim(),
+                              raza: selectedRazaId ?? '',
                               edad: edadCtrl.text.trim(),
-                              tipo: tipoCtrl.text.trim(),
+                              tipo: tipoNombre, // ✅ Guardamos el nombre, no el ID
                               duenoId: duenoId,
                             );
 
@@ -112,9 +204,9 @@ class PetFormDialog extends StatelessWidget {
                           } else {
                             final newPet = PetModel(
                               nombre: nombreCtrl.text.trim(),
-                              raza: razaCtrl.text.trim(),
+                              raza: selectedRazaId ?? '',
                               edad: edadCtrl.text.trim(),
-                              tipo: tipoCtrl.text.trim(),
+                              tipo: tipoNombre, // ✅ Guardamos el nombre, no el ID
                               duenoId: duenoId,
                             );
 
@@ -143,7 +235,9 @@ class PetFormDialog extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text(modoEditar ? "Guardar Cambios" : "Registrar"),
+                      child: Text(widget.modoEditar
+                          ? "Guardar Cambios"
+                          : "Registrar"),
                     ),
                   ),
                   const SizedBox(width: 10),
