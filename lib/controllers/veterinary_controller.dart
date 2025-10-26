@@ -18,7 +18,7 @@ class VeterinaryController extends GetxController {
     });
   }
 
-  // === OBTENER UBICACIÓN ACTUAL DEL USUARIO ===
+  // === MÉTODO PRIVADO: OBTENER UBICACIÓN ACTUAL ===
   Future<Position?> _getCurrentLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -41,7 +41,6 @@ class VeterinaryController extends GetxController {
         return null;
       }
 
-      // Si todo está bien, obtener posición actual
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -51,7 +50,7 @@ class VeterinaryController extends GetxController {
     }
   }
 
-  // === OBTENER NOMBRE DE LA DIRECCIÓN ===
+  // === MÉTODO PRIVADO: CONVERTIR COORDENADAS EN DIRECCIÓN ===
   Future<String?> _getAddressFromPosition(Position position) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
@@ -69,6 +68,20 @@ class VeterinaryController extends GetxController {
     }
   }
 
+  // === MÉTODO PÚBLICO: COMBINAR UBICACIÓN + DIRECCIÓN ===
+  Future<Map<String, dynamic>?> getCurrentLocationData() async {
+    final position = await _getCurrentLocation();
+    if (position == null) return null;
+
+    final direccion = await _getAddressFromPosition(position);
+
+    return {
+      'latitud': position.latitude,
+      'longitud': position.longitude,
+      'direccion': direccion ?? 'Dirección desconocida',
+    };
+  }
+
   // === AGREGAR VETERINARIA ===
   Future<void> addVeterinary(VeterinaryModel veterinary) async {
     try {
@@ -79,17 +92,13 @@ class VeterinaryController extends GetxController {
       }
 
       // Obtener ubicación actual
-      final position = await _getCurrentLocation();
-      String? direccion;
-      if (position != null) {
-        direccion = await _getAddressFromPosition(position);
-      }
+      final ubicacion = await getCurrentLocationData();
 
       // Actualizar datos del modelo con la ubicación
       final veterinaryWithLocation = veterinary.copyWith(
-        latitud: position?.latitude,
-        longitud: position?.longitude,
-        direccion: direccion,
+        latitud: ubicacion?['latitud'],
+        longitud: ubicacion?['longitud'],
+        direccion: ubicacion?['direccion'],
       );
 
       final docId = veterinary.id ?? currentUser.uid;

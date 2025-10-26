@@ -17,7 +17,12 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   final petController = Get.find<PetController>();
 
   void _agregarMascota() async {
-    await Get.dialog(const PetFormDialog());
+    // 🔹 Abrir el formulario y cerrar automáticamente al guardar
+    final resultado = await Get.dialog(const PetFormDialog());
+    if (resultado == true) {
+      Get.snackbar('Éxito', 'Mascota registrada correctamente',
+          backgroundColor: Colors.green, colorText: Colors.white);
+    }
   }
 
   @override
@@ -34,17 +39,21 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
           children: [
             Expanded(
               child: StreamBuilder<List<PetModel>>(
-                stream: petController.getPetsStream(FirebaseAuth.instance.currentUser?.uid ?? ''),
+                stream: petController.getPetsStream(
+                    FirebaseAuth.instance.currentUser?.uid ?? ''),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.green));
+                    return const Center(
+                        child: CircularProgressIndicator(color: Colors.green));
                   }
                   if (snapshot.hasError) {
-                    return Center(child: Text('Error: \$snapshot.error'));
+                    return Center(child: Text('Error: ${snapshot.error}'));
                   }
                   final mascotas = snapshot.data ?? [];
                   if (mascotas.isEmpty) {
-                    return Center(child: Text('No hay mascotas registradas aún', style: TextStyle(color: Colors.black54)));
+                    return const Center(
+                        child: Text('No hay mascotas registradas aún',
+                            style: TextStyle(color: Colors.black54)));
                   }
 
                   return ListView.builder(
@@ -56,24 +65,47 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
                         raza: mascota.raza,
                         edad: mascota.edad,
                         tipo: mascota.tipo,
-                        onEditar: () {
-                          Get.dialog(PetFormDialog(mascota: {
-                            'id': mascota.id,
-                            'nombre': mascota.nombre,
-                            'raza': mascota.raza,
-                            'edad': mascota.edad,
-                            'tipo': mascota.tipo,
-                          }, modoEditar: true));
+                        onEditar: () async {
+                          final resultado = await Get.dialog(PetFormDialog(
+                            mascota: {
+                              'id': mascota.id,
+                              'nombre': mascota.nombre,
+                              'raza': mascota.raza,
+                              'edad': mascota.edad,
+                              'tipo': mascota.tipo,
+                            },
+                            modoEditar: true,
+                          ));
+                          if (resultado == true) {
+                            Get.snackbar('Éxito', 'Mascota actualizada correctamente',
+                                backgroundColor: Colors.green,
+                                colorText: Colors.white);
+                          }
                         },
                         onEliminar: () async {
-                          final confirm = await Get.dialog<bool>(AlertDialog(
-                            title: const Text('Confirmar'),
-                            content: Text('¿Eliminar a \'\${mascota.nombre}\' ?'),
-                            actions: [
-                              TextButton(onPressed: () => Get.back(result: false), child: const Text('Cancelar')),
-                              ElevatedButton(onPressed: () => Get.back(result: true), child: const Text('Eliminar')),
-                            ],
-                          ));
+                          final confirm = await Get.dialog<bool>(
+                            AlertDialog(
+                              title: const Text('Confirmar'),
+                              content: Text(
+                                "¿Seguro que deseas eliminar a '${mascota.nombre}'?",
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Get.back(result: false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Get.back(result: true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Eliminar'),
+                                ),
+                              ],
+                            ),
+                          );
+
                           if (confirm == true && mascota.id != null) {
                             await petController.deletePet(mascota.id!);
                           }
@@ -89,7 +121,8 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _agregarMascota,
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+                icon:
+                    const Icon(Icons.add_circle_outline, color: Colors.white),
                 label: const Text("Agregar Nueva Mascota"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,

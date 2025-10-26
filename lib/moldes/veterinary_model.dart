@@ -33,7 +33,6 @@ class VeterinaryModel {
     this.longitud,
   });
 
-  /// Convierte el modelo a Map para Firestore
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'nombre': nombre,
@@ -46,25 +45,20 @@ class VeterinaryModel {
       'horarioLV': horarioLV,
       'horarioSab': horarioSab,
       'activo': activo,
-      // guardamos lat/lng separados (útil para consultas geográficas simples)
       'latitud': latitud,
       'longitud': longitud,
     };
 
-    // Si hay GeoPoint lo guardamos también (opcional)
     if (ubicacion != null) {
       map['ubicacion'] = ubicacion;
     } else if (latitud != null && longitud != null) {
-      // si no hay GeoPoint pero sí lat/lng, guardamos GeoPoint para compatibilidad
       map['ubicacion'] = GeoPoint(latitud!, longitud!);
     }
 
     return map;
   }
 
-  /// Crea instancia a partir de un doc (maneja GeoPoint o lat/lng)
   factory VeterinaryModel.fromMap(Map<String, dynamic> map, String id) {
-    // leer ubicacion si viene como GeoPoint
     GeoPoint? gp;
     double? lat;
     double? lng;
@@ -74,7 +68,6 @@ class VeterinaryModel {
       lat = gp.latitude;
       lng = gp.longitude;
     } else {
-      // fallback a campos latitud/longitud separados
       final dynamic maybeLat = map['latitud'];
       final dynamic maybeLng = map['longitud'];
       if (maybeLat is num && maybeLng is num) {
@@ -102,7 +95,6 @@ class VeterinaryModel {
     );
   }
 
-  /// copyWith para actualizar campos puntuales
   VeterinaryModel copyWith({
     String? id,
     String? nombre,
@@ -135,5 +127,13 @@ class VeterinaryModel {
       latitud: latitud ?? this.latitud,
       longitud: longitud ?? this.longitud,
     );
+  }
+
+  /// 🔹 Genera el enlace directo de Google Maps con las coordenadas
+  String? getGoogleMapsUrl() {
+    if (latitud != null && longitud != null) {
+      return "https://www.google.com/maps?q=$latitud,$longitud";
+    }
+    return null;
   }
 }

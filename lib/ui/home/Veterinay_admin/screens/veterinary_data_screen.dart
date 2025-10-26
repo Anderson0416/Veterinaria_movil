@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../controllers/veterinary_controller.dart';
 import '../../../../moldes/veterinary_model.dart';
 
@@ -24,27 +25,11 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   final horarioLVctrl = TextEditingController();
   final horarioSabCtrl = TextEditingController();
 
-  // Dropdowns
-  String? departamentoSeleccionado;
-  String? ciudadSeleccionada;
-
-  final List<String> departamentos = [
-    "Cundinamarca",
-    "Antioquia",
-    "Santander",
-    "Valle del Cauca",
-    "Atlántico",
-    "Cesar",
-  ];
-
-  final Map<String, List<String>> ciudadesPorDepartamento = {
-    "Cundinamarca": ["Bogotá", "Soacha", "Fusagasugá"],
-    "Antioquia": ["Medellín", "Envigado", "Bello"],
-    "Santander": ["Bucaramanga", "Floridablanca"],
-    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura"],
-    "Atlántico": ["Barranquilla", "Soledad"],
-    "Cesar": ["Valledupar", "Bosconia", "Aguachica"],
-  };
+  // Campos de ubicación actual
+  double? latitud;
+  double? longitud;
+  String? ciudad;
+  String? direccion;
 
   @override
   void initState() {
@@ -62,10 +47,12 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         telefonoCtrl.text = data.telefono;
         correoCtrl.text = data.correo;
         direccionCtrl.text = data.direccion;
-        departamentoSeleccionado = data.toMap()['departamento'];
-        ciudadSeleccionada = data.toMap()['ciudad'];
-        horarioLVctrl.text = data.toMap()['horarioLV'] ?? '';
-        horarioSabCtrl.text = data.toMap()['horarioSab'] ?? '';
+        horarioLVctrl.text = data.horarioLV ?? '';
+        horarioSabCtrl.text = data.horarioSab ?? '';
+        latitud = data.latitud;
+        longitud = data.longitud;
+        direccion = data.direccion;
+        ciudad = data.ciudad;
       });
     }
   }
@@ -76,21 +63,51 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
     final updatedData = VeterinaryModel(
       id: user!.uid,
       nombre: nombreCtrl.text,
-      direccion: direccionCtrl.text,
+      direccion: direccion ?? '',
       telefono: telefonoCtrl.text,
       nit: nitCtrl.text,
       correo: correoCtrl.text,
-    ).toMap();
+      horarioLV: horarioLVctrl.text,
+      horarioSab: horarioSabCtrl.text,
+      latitud: latitud,
+      longitud: longitud,
+      ciudad: ciudad,
+    );
 
-    // Campos adicionales que no están en el modelo base
-    updatedData.addAll({
-      'departamento': departamentoSeleccionado,
-      'ciudad': ciudadSeleccionada,
-      'horarioLV': horarioLVctrl.text,
-      'horarioSab': horarioSabCtrl.text,
+    await controller.updateVeterinary(user!.uid, updatedData);
+  }
+
+  Future<void> _obtenerUbicacionActual() async {
+  final ubicacion = await controller.getCurrentLocationData();
+  if (ubicacion == null) return;
+
+  setState(() {
+    latitud = ubicacion['latitud'];
+    longitud = ubicacion['longitud'];
+    direccion = ubicacion['direccion'];
+  });
+}
+
+
+  void _abrirEnGoogleMaps() async {
+    if (latitud == null || longitud == null) return;
+    final url =
+        'https://www.google.com/maps?q=$latitud,$longitud';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } else {
+      Get.snackbar('Error', 'No se pudo abrir Google Maps');
+    }
+  }
+
+  void _eliminarUbicacion() {
+    setState(() {
+      latitud = null;
+      longitud = null;
+      direccion = null;
+      ciudad = null;
     });
-
-    await controller.updateVeterinary(user!.uid, VeterinaryModel.fromMap(updatedData, user!.uid));
+    Get.snackbar('Ubicación eliminada', 'Puedes seleccionar una nueva ubicación');
   }
 
   @override
@@ -118,45 +135,67 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
             ),
             const SizedBox(height: 16),
 
+            // 🟢 Nueva sección de ubicación actual
             _buildSectionCard(
               icon: Icons.location_on,
-              title: "Ubicación",
+              title: "Agregar ubicación actual",
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDropdown(
-                        label: "Departamento",
-                        value: departamentoSeleccionado,
-                        items: departamentos,
-                        onChanged: (value) {
-                          setState(() {
-                            departamentoSeleccionado = value;
-                            ciudadSeleccionada = null;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildDropdown(
-                        label: "Ciudad",
-                        value: ciudadSeleccionada,
-                        items: ciudadesPorDepartamento[departamentoSeleccionado] ?? [],
-                        onChanged: (value) {
-                          setState(() {
-                            ciudadSeleccionada = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _obtenerUbicacionActual,
+                  icon: const Icon(Icons.my_location, color: Colors.white),
+                  label: const Text(
+                    "Obtener ubicación actual",
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
-                _buildTextField("Dirección Completa", direccionCtrl),
+                const SizedBox(height: 10),
+
+                if (latitud != null && longitud != null) ...[
+                  Text(
+                    "📍 Dirección: ${direccion ?? 'Desconocida'}",
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  Text("🏙️ Ciudad: ${ciudad ?? 'No disponible'}"),
+                  Text("🌎 Coordenadas: ($latitud, $longitud)"),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _abrirEnGoogleMaps,
+                        icon: const Icon(Icons.map, color: Colors.white),
+                        label: const Text("Ver en Google Maps",
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _eliminarUbicacion,
+                        icon: const Icon(Icons.delete, color: Colors.white),
+                        label: const Text("Eliminar ubicación",
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 16),
 
+            const SizedBox(height: 16),
             _buildSectionCard(
               icon: Icons.access_time,
               title: "Horarios de Atención",
@@ -164,19 +203,17 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildTextField("Lunes a Viernes", horarioLVctrl),
-                    ),
+                        child: _buildTextField("Lunes a Viernes", horarioLVctrl)),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _buildTextField("Sábados", horarioSabCtrl),
-                    ),
+                        child: _buildTextField("Sábados", horarioSabCtrl)),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
-            // Botones de acción
+            // Botón de guardar cambios
             Row(
               children: [
                 Expanded(
@@ -184,12 +221,13 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: _guardarCambios,
                     icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text("Guardar Cambios", style: TextStyle(color: Colors.white)),
-
+                    label: const Text("Guardar Cambios",
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],
@@ -197,7 +235,8 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
             const SizedBox(height: 10),
             TextButton(
               onPressed: () => Get.back(),
-              child: const Text("Cancelar", style: TextStyle(color: Colors.green)),
+              child: const Text("Cancelar",
+                  style: TextStyle(color: Colors.green)),
             ),
           ],
         ),
@@ -223,10 +262,9 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
               children: [
                 Icon(icon, color: Colors.green),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 10),
@@ -252,44 +290,8 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required String? value,
-    required List<String> items,
-    required Function(String?) onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.green),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: value,
-            hint: Text("Seleccionar $label"),
-            items: items
-                .map((item) => DropdownMenuItem(
-                      value: item,
-                      child: Text(item),
-                    ))
-                .toList(),
-            onChanged: onChanged,
-            isExpanded: true,
-          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
       ),
     );

@@ -158,9 +158,11 @@ class LoginScreens extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // === CAMPO DE CORREO ===
               TextField(
                 controller: userController,
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person_outline),
                   labelText: "Correo electrónico",
@@ -171,10 +173,21 @@ class LoginScreens extends StatelessWidget {
               ),
               const SizedBox(height: 15),
 
+              // === CAMPO DE CONTRASEÑA ===
               TextField(
                 controller: passController,
                 obscureText: true,
+                maxLength: 15, // 🔹 No más de 10 caracteres
+                textInputAction: TextInputAction.done, // 🔹 Permite presionar Enter
+                onSubmitted: (_) async {
+                  // 🔹 Al presionar Enter, se ejecuta el login
+                  await _login(
+                    userController.text.trim(),
+                    passController.text,
+                  );
+                },
                 decoration: InputDecoration(
+                  counterText: "", // 🔹 Oculta el contador de caracteres
                   prefixIcon: const Icon(Icons.lock_outline),
                   labelText: "Contraseña",
                   border: OutlineInputBorder(
@@ -184,6 +197,7 @@ class LoginScreens extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // === BOTÓN DE INICIO DE SESIÓN ===
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -208,6 +222,7 @@ class LoginScreens extends StatelessWidget {
               ),
               const SizedBox(height: 15),
 
+              // === LINK DE REGISTRO ===
               TextButton(
                 onPressed: () {
                   Get.dialog(
