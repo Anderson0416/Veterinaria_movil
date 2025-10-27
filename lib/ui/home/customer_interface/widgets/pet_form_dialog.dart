@@ -24,7 +24,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
   final nombreCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
 
-  String? selectedTipoId;
+  String? selectedTipoNombre;
   String? selectedRazaId;
 
   List<AnimalTypeModel> tiposAnimales = [];
@@ -50,12 +50,24 @@ class _PetFormDialogState extends State<PetFormDialog> {
     nombreCtrl.text = widget.mascota?['nombre'] ?? '';
     edadCtrl.text = widget.mascota?['edad'] ?? '';
 
-    _loadTipos();
+    // ✅ Cargar tipos y razas si es modo edición
+    _loadTipos().then((_) async {
+      if (widget.modoEditar) {
+        selectedTipoNombre = widget.mascota?['tipo'];
+        selectedRazaId = widget.mascota?['raza'];
 
-    if (widget.modoEditar) {
-      selectedTipoId = widget.mascota?['tipo'];
-      selectedRazaId = widget.mascota?['raza'];
-    }
+        // ✅ Buscar el tipo por nombre y cargar sus razas
+        final tipoSeleccionado =
+            tiposAnimales.firstWhereOrNull((t) => t.nombre == selectedTipoNombre);
+
+        if (tipoSeleccionado != null) {
+          await _loadRazas(tipoSeleccionado.id!);
+        }
+
+        // ✅ Refrescar interfaz
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _loadTipos() async {
@@ -101,9 +113,9 @@ class _PetFormDialogState extends State<PetFormDialog> {
               ),
               const SizedBox(height: 10),
 
-              // ✅ Tipo (ComboBox)
+              // ✅ Tipo (ComboBox) - Usa NOMBRE como valor
               DropdownButtonFormField<String>(
-                value: selectedTipoId,
+                value: selectedTipoNombre,
                 decoration: const InputDecoration(
                   labelText: "Tipo de Animal",
                   border: OutlineInputBorder(),
@@ -111,19 +123,23 @@ class _PetFormDialogState extends State<PetFormDialog> {
                 items: tiposAnimales
                     .map(
                       (tipo) => DropdownMenuItem<String>(
-                        value: tipo.id,
+                        value: tipo.nombre, // ✅ usamos nombre, no ID
                         child: Text(tipo.nombre),
                       ),
                     )
                     .toList(),
                 onChanged: (value) async {
                   setState(() {
-                    selectedTipoId = value;
+                    selectedTipoNombre = value;
                     selectedRazaId = null;
                     razas.clear();
                   });
-                  if (value != null) {
-                    await _loadRazas(value);
+
+                  // ✅ Buscamos el tipo por nombre para cargar sus razas
+                  final tipoSeleccionado =
+                      tiposAnimales.firstWhereOrNull((t) => t.nombre == value);
+                  if (tipoSeleccionado != null) {
+                    await _loadRazas(tipoSeleccionado.id!);
                   }
                 },
               ),
@@ -177,19 +193,15 @@ class _PetFormDialogState extends State<PetFormDialog> {
 
                           final duenoId = user.uid;
 
-                          // ✅ Buscar el nombre del tipo seleccionado
-                          final tipoSeleccionado = tiposAnimales
-                              .firstWhereOrNull((t) => t.id == selectedTipoId);
-                          final tipoNombre = tipoSeleccionado?.nombre ?? '';
-
-                          if (widget.modoEditar && widget.mascota?['id'] != null) {
+                          if (widget.modoEditar &&
+                              widget.mascota?['id'] != null) {
                             final id = widget.mascota!['id'] as String;
                             final updatedPet = PetModel(
                               id: id,
                               nombre: nombreCtrl.text.trim(),
                               raza: selectedRazaId ?? '',
                               edad: edadCtrl.text.trim(),
-                              tipo: tipoNombre, // ✅ Guardamos el nombre, no el ID
+                              tipo: selectedTipoNombre ?? '', // ✅ guarda nombre
                               duenoId: duenoId,
                             );
 
@@ -206,7 +218,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
                               nombre: nombreCtrl.text.trim(),
                               raza: selectedRazaId ?? '',
                               edad: edadCtrl.text.trim(),
-                              tipo: tipoNombre, // ✅ Guardamos el nombre, no el ID
+                              tipo: selectedTipoNombre ?? '', // ✅ guarda nombre
                               duenoId: duenoId,
                             );
 

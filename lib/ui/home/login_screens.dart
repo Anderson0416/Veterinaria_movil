@@ -7,6 +7,9 @@ import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_men
 import 'package:veterinaria_movil/ui/home/veterinarian_menu_screen.dart';
 import 'package:veterinaria_movil/ui/select_user_screen.dart';
 
+// 🔹 Importa tu nueva pantalla de administración
+import 'package:veterinaria_movil/ui/home/admin_menu_screen.dart';
+
 class LoginScreens extends StatelessWidget {
   const LoginScreens({super.key});
 
@@ -22,46 +25,55 @@ class LoginScreens extends StatelessWidget {
       return;
     }
 
-    // Mostrar indicador de carga
     Get.dialog(
       const Center(child: CircularProgressIndicator()),
       barrierDismissible: false,
     );
 
     try {
-      // 🔹 Inicia sesión con FirebaseAuth
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
       final user = userCredential.user;
       if (user == null) throw Exception("Usuario no encontrado");
 
-      // 🔹 Buscar el documento del usuario en las colecciones
       final firestore = FirebaseFirestore.instance;
       DocumentSnapshot? userDoc;
       String role = '';
 
-      // Buscar en veterinarias
+      // 🔹 Buscar en veterinarias
       userDoc = await firestore.collection('veterinarias').doc(user.uid).get();
       if (userDoc.exists) {
         role = 'veterinaria';
       } else {
-        // Buscar en veterinarios
+        // 🔹 Buscar en veterinarios
         userDoc = await firestore.collection('veterinarians').doc(user.uid).get();
         if (userDoc.exists) {
           role = 'veterinario';
         } else {
-          // Buscar en clientes
+          // 🔹 Buscar en clientes
           userDoc = await firestore.collection('customers').doc(user.uid).get();
           if (userDoc.exists) {
             role = 'cliente';
+          } else {
+            // 🔹 Buscar en users (tabla donde está el admin)
+            final userQuery = await firestore
+                .collection('users')
+                .where('email', isEqualTo: email)
+                .limit(1)
+                .get();
+
+            if (userQuery.docs.isNotEmpty) {
+              final data = userQuery.docs.first.data();
+              role = data['role'] ?? '';
+            }
           }
         }
       }
 
-      // Si no encontró el documento en ninguna colección
-      if (!userDoc.exists) {
-        if (Get.isDialogOpen ?? false) Get.back();
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      if (role.isEmpty) {
         Get.snackbar(
           "Error",
           "No se encontró el perfil del usuario en la base de datos",
@@ -71,9 +83,6 @@ class LoginScreens extends StatelessWidget {
         );
         return;
       }
-
-      // Cerrar el loading
-      if (Get.isDialogOpen ?? false) Get.back();
 
       // 🔹 Redirección según el rol encontrado
       switch (role.toLowerCase()) {
@@ -85,6 +94,9 @@ class LoginScreens extends StatelessWidget {
           break;
         case 'cliente':
           Get.off(() => const CustomerMenuScreen());
+          break;
+        case 'admin': // ✅ Nuevo caso agregado
+          Get.off(() => AdminMenuScreen());
           break;
         default:
           Get.snackbar(
@@ -157,8 +169,6 @@ class LoginScreens extends StatelessWidget {
                 style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 20),
-
-              // === CAMPO DE CORREO ===
               TextField(
                 controller: userController,
                 keyboardType: TextInputType.emailAddress,
@@ -172,22 +182,19 @@ class LoginScreens extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 15),
-
-              // === CAMPO DE CONTRASEÑA ===
               TextField(
                 controller: passController,
                 obscureText: true,
-                maxLength: 15, // 🔹 No más de 10 caracteres
-                textInputAction: TextInputAction.done, // 🔹 Permite presionar Enter
+                maxLength: 15,
+                textInputAction: TextInputAction.done,
                 onSubmitted: (_) async {
-                  // 🔹 Al presionar Enter, se ejecuta el login
                   await _login(
                     userController.text.trim(),
                     passController.text,
                   );
                 },
                 decoration: InputDecoration(
-                  counterText: "", // 🔹 Oculta el contador de caracteres
+                  counterText: "",
                   prefixIcon: const Icon(Icons.lock_outline),
                   labelText: "Contraseña",
                   border: OutlineInputBorder(
@@ -196,8 +203,6 @@ class LoginScreens extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // === BOTÓN DE INICIO DE SESIÓN ===
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -221,8 +226,6 @@ class LoginScreens extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 15),
-
-              // === LINK DE REGISTRO ===
               TextButton(
                 onPressed: () {
                   Get.dialog(
