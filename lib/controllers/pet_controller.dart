@@ -31,7 +31,7 @@ class PetController extends GetxController {
 
   await _db.collection('pets').add(pet.toMap());
       Get.snackbar('Éxito', 'Mascota registrada correctamente');
-    } catch (e) {
+    } catch (e) { 
       Get.snackbar('Error', 'No se pudo registrar la mascota: $e');
     }
   }

@@ -1,8 +1,8 @@
+// lib/controllers/veterinary_controller.dart
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:veterinaria_movil/moldes/veterinary_model.dart';
 
 class VeterinaryController extends GetxController {
@@ -18,7 +18,7 @@ class VeterinaryController extends GetxController {
     });
   }
 
-  // === MÉTODO PRIVADO: OBTENER UBICACIÓN ACTUAL ===
+  // === MÉTODO PRIVADO: OBTENER UBICACIÓN ACTUAL (COORDENADAS) ===
   Future<Position?> _getCurrentLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -50,35 +50,13 @@ class VeterinaryController extends GetxController {
     }
   }
 
-  // === MÉTODO PRIVADO: CONVERTIR COORDENADAS EN DIRECCIÓN ===
-  Future<String?> _getAddressFromPosition(Position position) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        return '${place.locality}, ${place.country}';
-      }
-      return null;
-    } catch (e) {
-      Get.snackbar('Error', 'No se pudo obtener la dirección: $e');
-      return null;
-    }
-  }
-
-  // === MÉTODO PÚBLICO: COMBINAR UBICACIÓN + DIRECCIÓN ===
-  Future<Map<String, dynamic>?> getCurrentLocationData() async {
+  /// Método público para obtener **solo** latitud/longitud (no altera dirección)
+  Future<Map<String, double>?> getCurrentCoordinates() async {
     final position = await _getCurrentLocation();
     if (position == null) return null;
-
-    final direccion = await _getAddressFromPosition(position);
-
     return {
       'latitud': position.latitude,
       'longitud': position.longitude,
-      'direccion': direccion ?? 'Dirección desconocida',
     };
   }
 
@@ -91,18 +69,8 @@ class VeterinaryController extends GetxController {
         return;
       }
 
-      // Obtener ubicación actual
-      final ubicacion = await getCurrentLocationData();
-
-      // Actualizar datos del modelo con la ubicación
-      final veterinaryWithLocation = veterinary.copyWith(
-        latitud: ubicacion?['latitud'],
-        longitud: ubicacion?['longitud'],
-        direccion: ubicacion?['direccion'],
-      );
-
       final docId = veterinary.id ?? currentUser.uid;
-      await _db.collection('veterinarias').doc(docId).set(veterinaryWithLocation.toMap());
+      await _db.collection('veterinarias').doc(docId).set(veterinary.toMap());
 
       Get.snackbar('Éxito', 'Veterinaria registrada correctamente');
     } catch (e) {
@@ -120,13 +88,16 @@ class VeterinaryController extends GetxController {
     }
   }
 
-  // === ELIMINAR VETERINARIA ===
-  Future<void> deleteVeterinary(String id) async {
+  // === ELIMINAR SOLO COORDENADAS (latitud y longitud) ===
+  Future<void> removeVeterinaryCoordinates(String id) async {
     try {
-      await _db.collection('veterinarias').doc(id).delete();
-      Get.snackbar('Éxito', 'Veterinaria eliminada correctamente');
+      await _db.collection('veterinarias').doc(id).update({
+        'latitud': FieldValue.delete(),
+        'longitud': FieldValue.delete(),
+      });
+      Get.snackbar('Coordenadas eliminadas', 'Latitud y longitud borradas correctamente');
     } catch (e) {
-      Get.snackbar('Error', 'No se pudo eliminar: $e');
+      Get.snackbar('Error', 'No se pudieron eliminar las coordenadas: $e');
     }
   }
 
