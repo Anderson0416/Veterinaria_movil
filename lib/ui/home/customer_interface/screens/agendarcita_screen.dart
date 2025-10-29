@@ -27,8 +27,12 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
   // Selection state
   String? mascotaSeleccionada;
-  String? servicioSeleccionado;
-  String? veterinarioSeleccionado;
+  // Guardaremos tanto id como nombre del servicio seleccionado
+  String? servicioSeleccionadoId;
+  String? servicioSeleccionadoNombre;
+  // Veterinario seleccionado (id + nombre)
+  String? veterinarioSeleccionadoId;
+  String? veterinarioSeleccionadoNombre;
   DateTime? fechaSeleccionada;
   TimeOfDay? horaSeleccionada;
   String? modalidadSeleccionada;
@@ -81,7 +85,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
   void _confirmarCita() {
     if (mascotaSeleccionada == null ||
-        servicioSeleccionado == null ||
+        servicioSeleccionadoId == null ||
         fechaSeleccionada == null ||
         horaSeleccionada == null ||
         modalidadSeleccionada == null) {
@@ -92,7 +96,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
     Get.defaultDialog(
       title: 'Cita Registrada',
       middleText:
-          'Tu cita para $mascotaSeleccionada ha sido agendada el ${fechaCtrl.text} a las ${horaCtrl.text}. Modalidad: $modalidadSeleccionada.',
+          'Tu cita para $mascotaSeleccionada (${servicioSeleccionadoNombre ?? ''}) ha sido agendada el ${fechaCtrl.text} a las ${horaCtrl.text}. Modalidad: $modalidadSeleccionada.',
       textConfirm: 'Aceptar',
       confirmTextColor: Colors.white,
       onConfirm: () => Get.back(),
@@ -144,11 +148,16 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
                         if (match != null) {
                           final found = match;
                           setState(() {
-                            selectedClinicId = found.id;
+          selectedClinicId = found.id;
                             final data = found.data() as Map<String, dynamic>;
                             clinicaNombre = data['nombre'] ?? '';
                             clinicaDireccion = data['direccion'] ?? '';
                             clinicaTelefono = data['telefono'] ?? '';
+                                    // Reset service selection when clinic changes
+              servicioSeleccionadoId = null;
+              servicioSeleccionadoNombre = null;
+              veterinarioSeleccionadoId = null;
+              veterinarioSeleccionadoNombre = null;
                           });
                         }
                       },
@@ -205,13 +214,87 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
                           const SizedBox(height: 12),
 
-                          // Servicio
-                          CitaDropdownField(
-                            label: 'Tipo de Servicio',
-                            value: servicioSeleccionado,
-                            items: servicios,
-                            onChanged: (v) => setState(() => servicioSeleccionado = v),
-                          ),
+                          // Servicio (dinámico según clínica seleccionada)
+                          selectedClinicId == null
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: DropdownButtonFormField<String>(
+                                    value: null,
+                                    decoration: InputDecoration(
+                                      labelText: 'Tipo de Servicio',
+                                      labelStyle: const TextStyle(color: Colors.green),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    items: const [],
+                                    onChanged: null,
+                                    hint: const Text('Selecciona primero una clínica'),
+                                  ),
+                                )
+                              : StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('types_services')
+                                      .where('veterinaryId', isEqualTo: selectedClinicId)
+                                      .snapshots(),
+                                  builder: (context, snapServices) {
+                                    if (snapServices.connectionState == ConnectionState.waiting) {
+                                      return const Center(child: CircularProgressIndicator(color: Colors.green));
+                                    }
+                                    final docsS = snapServices.data?.docs ?? [];
+                                                        // Construir lista de items con id como valor y nombre como label
+                                                        final serviceItems = docsS
+                                                            .map<DropdownMenuItem<String>>((d) {
+                                                          final data = d.data() as Map<String, dynamic>;
+                                                          final name = (data['nombre'] ?? '').toString();
+                                                          return DropdownMenuItem(value: d.id, child: Text(name));
+                                                        }).toList();
+
+                                                        if (serviceItems.isEmpty) {
+                                                          return Padding(
+                                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                                            child: DropdownButtonFormField<String>(
+                                                              value: null,
+                                                              decoration: InputDecoration(
+                                                                labelText: 'Tipo de Servicio',
+                                                                labelStyle: const TextStyle(color: Colors.green),
+                                                                filled: true,
+                                                                fillColor: Colors.white,
+                                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                                              ),
+                                                              items: const [],
+                                                              onChanged: null,
+                                                              hint: const Text('No hay servicios disponibles'),
+                                                            ),
+                                                          );
+                                                        }
+
+                                                        return Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                                          child: DropdownButtonFormField<String>(
+                                                            value: servicioSeleccionadoId,
+                                                            isExpanded: true,
+                                                            decoration: InputDecoration(
+                                                              labelText: 'Tipo de Servicio',
+                                                              labelStyle: const TextStyle(color: Colors.green),
+                                                              filled: true,
+                                                              fillColor: Colors.white,
+                                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                                            ),
+                                                            items: serviceItems,
+                                                            onChanged: (val) {
+                                                              if (val == null) return;
+                                                              final matchedDoc = docsS.firstWhere((d) => d.id == val, orElse: () => docsS.first);
+                                                              final matchedName = (matchedDoc.data() as Map<String, dynamic>)['nombre']?.toString() ?? '';
+                                                              setState(() {
+                                                                servicioSeleccionadoId = val;
+                                                                servicioSeleccionadoNombre = matchedName;
+                                                              });
+                                                            },
+                                                          ),
+                                                        );
+                                  },
+                                ),
 
                           const SizedBox(height: 12),
 
@@ -250,13 +333,86 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
                           const SizedBox(height: 12),
 
-                          // Veterinario
-                          CitaDropdownField(
-                            label: 'Veterinario (Opcional)',
-                            value: veterinarioSeleccionado,
-                            items: veterinarios,
-                            onChanged: (v) => setState(() => veterinarioSeleccionado = v),
-                          ),
+                          // Veterinario (filtrado por clínica seleccionada)
+                          selectedClinicId == null
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: DropdownButtonFormField<String>(
+                                    value: null,
+                                    decoration: InputDecoration(
+                                      labelText: 'Veterinario (Opcional)',
+                                      labelStyle: const TextStyle(color: Colors.green),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    items: const [],
+                                    onChanged: null,
+                                    hint: const Text('Selecciona primero una clínica'),
+                                  ),
+                                )
+                              : StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('veterinarians')
+                                      .where('veterinaryId', isEqualTo: selectedClinicId)
+                                      .snapshots(),
+                                  builder: (context, snapVets) {
+                                    if (snapVets.connectionState == ConnectionState.waiting) {
+                                      return const Center(child: CircularProgressIndicator(color: Colors.green));
+                                    }
+                                    final docsV = snapVets.data?.docs ?? [];
+                                    final vetItems = docsV.map<DropdownMenuItem<String>>((d) {
+                                      final data = d.data() as Map<String, dynamic>;
+                                      final fullName = '${(data['nombre'] ?? '').toString()} ${(data['apellido'] ?? '').toString()}'.trim();
+                                      return DropdownMenuItem(value: d.id, child: Text(fullName.isNotEmpty ? fullName : 'Veterinario'));
+                                    }).toList();
+
+                                    if (vetItems.isEmpty) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        child: DropdownButtonFormField<String>(
+                                          value: null,
+                                          decoration: InputDecoration(
+                                            labelText: 'Veterinario (Opcional)',
+                                            labelStyle: const TextStyle(color: Colors.green),
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          items: const [],
+                                          onChanged: null,
+                                          hint: const Text('No hay veterinarios disponibles'),
+                                        ),
+                                      );
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      child: DropdownButtonFormField<String>(
+                                        value: veterinarioSeleccionadoId,
+                                        isExpanded: true,
+                                        decoration: InputDecoration(
+                                          labelText: 'Veterinario (Opcional)',
+                                          labelStyle: const TextStyle(color: Colors.green),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
+                                        items: vetItems,
+                                        onChanged: (val) {
+                                          if (val == null) return;
+                                          final matched = docsV.firstWhere((d) => d.id == val, orElse: () => docsV.first);
+                                          final data = matched.data() as Map<String, dynamic>;
+                                          final fullName = '${(data['nombre'] ?? '').toString()} ${(data['apellido'] ?? '').toString()}'.trim();
+                                          setState(() {
+                                            veterinarioSeleccionadoId = val;
+                                            veterinarioSeleccionadoNombre = fullName;
+                                          });
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
 
                           const SizedBox(height: 12),
 

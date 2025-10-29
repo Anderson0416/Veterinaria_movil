@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
 import 'package:veterinaria_movil/moldes/customer_model.dart';
 import 'package:veterinaria_movil/ui/home/login_screens.dart';
@@ -24,9 +26,15 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
   final docNumCtrl = TextEditingController();
   final direccionCtrl = TextEditingController();
 
+
   String tipoDoc = "CC";
-  String departamento = "Antioquia";
-  String ciudad = "Medellín";
+  // Ubicaciones
+  Map<String, List<String>> locationMap = {};
+  List<String> departamentos = [];
+  List<String> ciudades = [];
+  String? selectedDepartamento;
+  String? selectedCiudad;
+  bool locationsLoading = true;
 
   late final CustomerController customerController;
 
@@ -34,6 +42,40 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
   void initState() {
     super.initState();
     customerController = Get.find();
+    _loadLocations();
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/data/colombia_locations.json');
+      final decoded = json.decode(jsonString);
+      if (decoded is Map<String, dynamic>) {
+        locationMap = decoded.map((key, value) => MapEntry(key, List<String>.from(value)));
+      } else if (decoded is List) {
+        locationMap = {};
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            final dept = (item['departamento'] ?? item['departamento_name'] ?? '').toString();
+            final citiesRaw = item['ciudades'] ?? item['cities'] ?? item['municipios'];
+            if (dept.isNotEmpty && citiesRaw is List) {
+              locationMap[dept] = citiesRaw.map((c) => c.toString()).toList();
+            }
+          }
+        }
+      } else {
+        throw Exception('Formato JSON de ubicaciones no reconocido');
+      }
+      departamentos = locationMap.keys.toList()..sort();
+      // Selección inicial
+      selectedDepartamento = departamentos.isNotEmpty ? departamentos.first : null;
+      ciudades = selectedDepartamento != null ? locationMap[selectedDepartamento] ?? [] : [];
+      selectedCiudad = ciudades.isNotEmpty ? ciudades.first : null;
+    } catch (e) {
+      print('Error cargando locations: $e');
+      Get.snackbar('Error', 'No se pudieron cargar ubicaciones: $e');
+    } finally {
+      setState(() => locationsLoading = false);
+    }
   }
 
   @override
@@ -123,38 +165,19 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
               title: "Ubicación",
               icon: Icons.location_on,
               children: [
-                DropdownButtonFormField<String>(
-                  value: departamento,
-                  decoration: InputDecoration(
-                    labelText: "Departamento",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: "Antioquia", child: Text("Antioquia")),
-                    DropdownMenuItem(value: "Cundinamarca", child: Text("Cundinamarca")),
-                    DropdownMenuItem(value: "Valle del Cauca", child: Text("Valle del Cauca")),
-                  ],
-                  onChanged: (v) => departamento = v ?? "Antioquia",
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: ciudad,
-                  decoration: InputDecoration(
-                    labelText: "Ciudad",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: "Medellín", child: Text("Medellín")),
-                    DropdownMenuItem(value: "Bogotá", child: Text("Bogotá")),
-                    DropdownMenuItem(value: "Cali", child: Text("Cali")),
-                  ],
-                  onChanged: (v) => ciudad = v ?? "Medellín",
-                ),
-                const SizedBox(height: 10),
+                locationsLoading
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: const [
+                            SizedBox(width: 16),
+                            CircularProgressIndicator(color: Colors.green),
+                            SizedBox(width: 12),
+                            Text('Cargando ubicaciones...')
+                          ],
+                        ),
+                      )
+                    : _buildLocationFields(),
                 _input(direccionCtrl, "Dirección", icon: Icons.home),
               ],
             ),
@@ -200,8 +223,8 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
                     fechaNacimiento: fecha,
                     tipoDocumento: tipoDoc,
                     numeroDocumento: numeroDoc,
-                    departamento: departamento,
-                    ciudad: ciudad,
+                    departamento: selectedDepartamento ?? '',
+                    ciudad: selectedCiudad ?? '',
                     direccion: direccion,
                   );
 
@@ -291,6 +314,59 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
           ...children,
         ],
       ),
+    );
+  }
+
+  // Dropdowns de departamento y ciudad
+  Widget _buildLocationFields() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: DropdownButtonFormField<String>(
+            value: selectedDepartamento,
+            decoration: InputDecoration(
+              labelText: 'Departamento',
+              labelStyle: const TextStyle(color: Colors.green),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.green.shade400),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            items: departamentos.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (val) {
+              setState(() {
+                selectedDepartamento = val;
+                // Actualizar ciudades
+                ciudades = (val != null) ? (locationMap[val] ?? []) : [];
+                selectedCiudad = ciudades.isNotEmpty ? ciudades.first : null;
+              });
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: DropdownButtonFormField<String>(
+            value: selectedCiudad,
+            decoration: InputDecoration(
+              labelText: 'Ciudad',
+              labelStyle: const TextStyle(color: Colors.green),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.green.shade400),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            items: ciudades.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: (val) {
+              setState(() {
+                selectedCiudad = val;
+              });
+            },
+          ),
+        ),
+      ],
     );
   }
 }

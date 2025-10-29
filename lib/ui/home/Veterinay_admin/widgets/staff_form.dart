@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../../../controllers/veterinarian_controller.dart';
 import '../../../../moldes/veterinarian_models.dart';
 
@@ -43,6 +45,13 @@ class _StaffFormState extends State<StaffForm> {
   ];
 
   bool isLoading = false;
+  // Locations for departamento/ciudad
+  Map<String, List<String>> locationMap = {};
+  List<String> departamentos = [];
+  List<String> ciudades = [];
+  String? selectedDepartamento;
+  String? selectedCiudad;
+  bool locationsLoading = true;
 
   // Registrar veterinario sin cerrar sesión actual
   Future<void> _registrarVeterinario() async {
@@ -149,6 +158,59 @@ class _StaffFormState extends State<StaffForm> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Cargar ubicaciones desde el asset JSON
+    _loadLocations();
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/data/colombia_locations.json');
+      final decoded = json.decode(jsonString);
+
+      if (decoded is Map<String, dynamic>) {
+        locationMap = decoded.map((key, value) => MapEntry(key, List<String>.from(value)));
+      } else if (decoded is List) {
+        locationMap = {};
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            final dept = (item['departamento'] ?? item['departamento_name'] ?? '').toString();
+            final citiesRaw = item['ciudades'] ?? item['cities'] ?? item['municipios'];
+            if (dept.isNotEmpty && citiesRaw is List) {
+              locationMap[dept] = citiesRaw.map((c) => c.toString()).toList();
+            }
+          }
+        }
+      } else {
+        throw Exception('Formato JSON de ubicaciones no reconocido');
+      }
+
+      departamentos = locationMap.keys.toList()..sort();
+
+      // establecer selección inicial si ya hay texto en controllers
+      if (departamentoCtrl.text.isNotEmpty && locationMap.containsKey(departamentoCtrl.text)) {
+        selectedDepartamento = departamentoCtrl.text;
+        ciudades = locationMap[selectedDepartamento] ?? [];
+        if (ciudadCtrl.text.isNotEmpty && ciudades.contains(ciudadCtrl.text)) {
+          selectedCiudad = ciudadCtrl.text;
+        }
+      } else {
+        selectedDepartamento = departamentos.isNotEmpty ? departamentos.first : null;
+        if (selectedDepartamento != null) ciudades = locationMap[selectedDepartamento] ?? [];
+      }
+
+      if (selectedDepartamento != null) departamentoCtrl.text = selectedDepartamento!;
+      if (selectedCiudad != null) ciudadCtrl.text = selectedCiudad!;
+    } catch (e) {
+      print('Error cargando locations: $e');
+      Get.snackbar('Error', 'No se pudieron cargar ubicaciones: $e');
+    } finally {
+      setState(() => locationsLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -241,8 +303,22 @@ class _StaffFormState extends State<StaffForm> {
               ),
             ),
             _buildTextField("Número de Documento", numeroDocumentoCtrl),
-            _buildTextField("Departamento", departamentoCtrl),
-            _buildTextField("Ciudad", ciudadCtrl),
+
+            // Departamento / Ciudad desde JSON
+            locationsLoading
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: const [
+                        SizedBox(width: 16),
+                        CircularProgressIndicator(color: Colors.green),
+                        SizedBox(width: 12),
+                        Text('Cargando ubicaciones...')
+                      ],
+                    ),
+                  )
+                : _buildLocationFields(),
+
             _buildTextField("Dirección", direccionCtrl),
 
             const SizedBox(height: 16),
@@ -323,6 +399,63 @@ class _StaffFormState extends State<StaffForm> {
           ),
         ),
       ),
+    );
+  }
+
+  // Construye los dropdowns de departamento y ciudad usando locationMap
+  Widget _buildLocationFields() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: DropdownButtonFormField<String>(
+            value: selectedDepartamento,
+            decoration: InputDecoration(
+              labelText: 'Departamento',
+              labelStyle: const TextStyle(color: Colors.green),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.green.shade400),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            items: departamentos.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (val) {
+              setState(() {
+                selectedDepartamento = val;
+                departamentoCtrl.text = val ?? '';
+                ciudades = (val != null) ? (locationMap[val] ?? []) : [];
+                if (selectedCiudad == null || !ciudades.contains(selectedCiudad)) {
+                  selectedCiudad = null;
+                  ciudadCtrl.text = '';
+                }
+              });
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: DropdownButtonFormField<String>(
+            value: selectedCiudad,
+            decoration: InputDecoration(
+              labelText: 'Ciudad',
+              labelStyle: const TextStyle(color: Colors.green),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.green.shade400),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            items: ciudades.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: (val) {
+              setState(() {
+                selectedCiudad = val;
+                ciudadCtrl.text = val ?? '';
+              });
+            },
+          ),
+        ),
+      ],
     );
   }
 }

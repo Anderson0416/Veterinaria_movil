@@ -1,11 +1,14 @@
 // veterinary_data_screen.dart
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../controllers/veterinary_controller.dart';
 import '../../../../moldes/veterinary_model.dart';
+
 
 class VeterinaryDataScreen extends StatefulWidget {
   const VeterinaryDataScreen({super.key});
@@ -30,24 +33,9 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   // Dropdowns
   String? departamentoSeleccionado;
   String? ciudadSeleccionada;
-
-  final List<String> departamentos = [
-    "Cundinamarca",
-    "Antioquia",
-    "Santander",
-    "Valle del Cauca",
-    "Atlántico",
-    "Cesar",
-  ];
-
-  final Map<String, List<String>> ciudadesPorDepartamento = {
-    "Cundinamarca": ["Bogotá", "Soacha", "Fusagasugá"],
-    "Antioquia": ["Medellín", "Envigado", "Bello"],
-    "Santander": ["Bucaramanga", "Floridablanca"],
-    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura"],
-    "Atlántico": ["Barranquilla", "Soledad"],
-    "Cesar": ["Valledupar", "Bosconia", "Aguachica"],
-  };
+  // These will be loaded from assets/data/colombia_locations.json
+  final List<String> departamentos = [];
+  final Map<String, List<String>> ciudadesPorDepartamento = {};
 
   // Coordenadas
   double? latitud;
@@ -56,7 +44,99 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVeterinaryData();
+    _loadLocations().then((_) => _loadVeterinaryData());
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final jsonStr = await rootBundle.loadString('assets/data/colombia_locations.json');
+      final data = jsonDecode(jsonStr);
+
+      // Support multiple possible structures:
+      // 1) Map<String, List> where keys are department names and values are lists of cities
+      // 2) List of objects: [{"departamento": "Name", "ciudades": [..]}, ...]
+      // 3) Map with key 'departamentos' containing list of objects
+
+      departamentos.clear();
+      ciudadesPorDepartamento.clear();
+
+      if (data is Map<String, dynamic>) {
+        // Case 1 or case 3
+        if (data.containsKey('departamentos') && data['departamentos'] is List) {
+          for (final entry in data['departamentos']) {
+            if (entry is Map<String, dynamic>) {
+              final dept = entry['departamento']?.toString() ?? '';
+              final cities = <String>[];
+              if (entry['ciudades'] is List) {
+                for (final c in entry['ciudades']) {
+                  cities.add(c.toString());
+                }
+              }
+              if (dept.isNotEmpty) {
+                departamentos.add(dept);
+                ciudadesPorDepartamento[dept] = cities;
+              }
+            }
+          }
+        } else {
+          // Assume map of department -> list of cities
+          for (final key in data.keys) {
+            final value = data[key];
+            if (value is List) {
+              departamentos.add(key);
+              ciudadesPorDepartamento[key] = value.map((e) => e.toString()).toList();
+            }
+          }
+        }
+      } else if (data is List) {
+        // Case 2: list of {departamento, ciudades}
+        for (final item in data) {
+          if (item is Map<String, dynamic>) {
+            final dept = item['departamento']?.toString() ?? '';
+            final cities = <String>[];
+            if (item['ciudades'] is List) {
+              for (final c in item['ciudades']) {
+                cities.add(c.toString());
+              }
+            }
+            if (dept.isNotEmpty) {
+              departamentos.add(dept);
+              ciudadesPorDepartamento[dept] = cities;
+            }
+          }
+        }
+      }
+
+      // Sort departments alphabetically for UX
+      departamentos.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      setState(() {});
+    } catch (e) {
+      // If loading fails, fall back to a small default set so the UI still works.
+      // Avoid showing a snackbar that confuses the user; log for debugging instead.
+      // Default subset:
+      departamentos.clear();
+      ciudadesPorDepartamento.clear();
+      departamentos.addAll([
+        'Cundinamarca',
+        'Antioquia',
+        'Valle del Cauca',
+        'Atlántico',
+        'Cesar',
+        'Santander',
+      ]);
+      ciudadesPorDepartamento.addAll({
+        'Cundinamarca': ['Bogotá', 'Soacha', 'Fusagasugá'],
+        'Antioquia': ['Medellín', 'Envigado', 'Bello'],
+        'Valle del Cauca': ['Cali', 'Palmira', 'Buenaventura'],
+        'Atlántico': ['Barranquilla', 'Soledad'],
+        'Cesar': ['Valledupar', 'Bosconia', 'Aguachica'],
+        'Santander': ['Bucaramanga', 'Floridablanca'],
+      });
+      // Log the error for developers
+      // ignore: avoid_print
+      print('Warning: failed to load colombia_locations.json: $e');
+      setState(() {});
+    }
   }
 
   Future<void> _loadVeterinaryData() async {

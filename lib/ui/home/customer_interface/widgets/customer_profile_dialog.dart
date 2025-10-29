@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
 import 'package:veterinaria_movil/moldes/customer_model.dart';
 import 'package:veterinaria_movil/ui/home/login_screens.dart';
-
+import 'dart:convert';
 
 class CustomerProfileDialog extends StatefulWidget {
   final Customer customer;
@@ -30,6 +30,14 @@ class _CustomerProfileDialogState extends State<CustomerProfileDialog> {
 
   bool isSaving = false;
 
+  // Locations
+  Map<String, List<String>> locationMap = {};
+  List<String> departamentos = [];
+  List<String> ciudades = [];
+  String? selectedDepartamento;
+  String? selectedCiudad;
+  bool locationsLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +52,53 @@ class _CustomerProfileDialogState extends State<CustomerProfileDialog> {
     departamentoCtrl = TextEditingController(text: c.departamento);
     ciudadCtrl = TextEditingController(text: c.ciudad);
     direccionCtrl = TextEditingController(text: c.direccion);
+    _loadLocations();
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final jsonString = await DefaultAssetBundle.of(context)
+          .loadString('assets/data/colombia_locations.json');
+      final decoded = json.decode(jsonString);
+      if (decoded is Map<String, dynamic>) {
+        locationMap = decoded.map(
+            (key, value) => MapEntry(key, List<String>.from(value)));
+      } else if (decoded is List) {
+        locationMap = {};
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            final dept =
+                (item['departamento'] ?? item['departamento_name'] ?? '')
+                    .toString();
+            final citiesRaw = item['ciudades'] ?? item['cities'] ?? item['municipios'];
+            if (dept.isNotEmpty && citiesRaw is List) {
+              locationMap[dept] = citiesRaw.map((c) => c.toString()).toList();
+            }
+          }
+        }
+      } else {
+        throw Exception('Formato JSON de ubicaciones no reconocido');
+      }
+      departamentos = locationMap.keys.toList()..sort();
+      // Selección inicial
+      selectedDepartamento = departamentoCtrl.text.isNotEmpty &&
+              locationMap.containsKey(departamentoCtrl.text)
+          ? departamentoCtrl.text
+          : (departamentos.isNotEmpty ? departamentos.first : null);
+      ciudades = selectedDepartamento != null
+          ? locationMap[selectedDepartamento] ?? []
+          : [];
+      selectedCiudad = ciudadCtrl.text.isNotEmpty && ciudades.contains(ciudadCtrl.text)
+          ? ciudadCtrl.text
+          : (ciudades.isNotEmpty ? ciudades.first : null);
+      if (selectedDepartamento != null) departamentoCtrl.text = selectedDepartamento!;
+      if (selectedCiudad != null) ciudadCtrl.text = selectedCiudad!;
+    } catch (e) {
+      print('Error cargando locations: $e');
+      Get.snackbar('Error', 'No se pudieron cargar ubicaciones: $e');
+    } finally {
+      setState(() => locationsLoading = false);
+    }
   }
 
   @override
@@ -184,62 +239,153 @@ class _CustomerProfileDialogState extends State<CustomerProfileDialog> {
   }
 
   Widget _buildField(String label, TextEditingController ctrl) {
-  if (label == "Tipo Documento") {
-    // Si es el campo tipoDocumento, usar dropdown
-    return _buildDropdown(label, ctrl);
+    if (label == "Tipo Documento") {
+      // Si es el campo tipoDocumento, usar dropdown
+      return _buildDropdown(label, ctrl);
+    }
+    if (label == "Departamento") {
+      return locationsLoading
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: const [
+                  SizedBox(width: 16),
+                  CircularProgressIndicator(color: Colors.green),
+                  SizedBox(width: 12),
+                  Text('Cargando ubicaciones...')
+                ],
+              ),
+            )
+          : _buildDepartamentoDropdown(ctrl);
+    }
+    if (label == "Ciudad") {
+      return locationsLoading
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: const [
+                  SizedBox(width: 16),
+                  CircularProgressIndicator(color: Colors.green),
+                  SizedBox(width: 12),
+                  Text('Cargando ubicaciones...')
+                ],
+              ),
+            )
+          : _buildCiudadDropdown(ctrl);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: TextField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.green),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green.shade400),
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
   }
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: TextField(
-      controller: ctrl,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.green),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.green.shade400),
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDropdown(String label, TextEditingController ctrl) {
+    final List<String> opciones = ["CC", "TI", "CE"];
+    String? valorSeleccionado = ctrl.text.isNotEmpty ? ctrl.text : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: DropdownButtonFormField<String>(
+        value: valorSeleccionado,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.green),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green.shade400),
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
+        items: opciones
+            .map((op) => DropdownMenuItem(
+                  value: op,
+                  child: Text(op),
+                ))
+            .toList(),
+        onChanged: (nuevoValor) {
+          setState(() {
+            ctrl.text = nuevoValor ?? "";
+          });
+        },
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildDropdown(String label, TextEditingController ctrl) {
-  final List<String> opciones = ["CC", "TI", "CE"];
-  String? valorSeleccionado = ctrl.text.isNotEmpty ? ctrl.text : null;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: DropdownButtonFormField<String>(
-      value: valorSeleccionado,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.green),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.green.shade400),
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDepartamentoDropdown(TextEditingController ctrl) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: DropdownButtonFormField<String>(
+        value: selectedDepartamento,
+        decoration: InputDecoration(
+          labelText: 'Departamento',
+          labelStyle: const TextStyle(color: Colors.green),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green.shade400),
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
+        items: departamentos
+            .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+            .toList(),
+        onChanged: (val) {
+          setState(() {
+            selectedDepartamento = val;
+            ctrl.text = val ?? '';
+            ciudades = (val != null) ? (locationMap[val] ?? []) : [];
+            if (selectedCiudad == null || !ciudades.contains(selectedCiudad)) {
+              selectedCiudad = null;
+              ciudadCtrl.text = '';
+            }
+          });
+        },
       ),
-      items: opciones
-          .map((op) => DropdownMenuItem(
-                value: op,
-                child: Text(op),
-              ))
-          .toList(),
-      onChanged: (nuevoValor) {
-        setState(() {
-          ctrl.text = nuevoValor ?? "";
-        });
-      },
-    ),
-  );
-}
+    );
+  }
 
+  Widget _buildCiudadDropdown(TextEditingController ctrl) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: DropdownButtonFormField<String>(
+        value: selectedCiudad,
+        decoration: InputDecoration(
+          labelText: 'Ciudad',
+          labelStyle: const TextStyle(color: Colors.green),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green.shade400),
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        items: ciudades
+            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+            .toList(),
+        onChanged: (val) {
+          setState(() {
+            selectedCiudad = val;
+            ctrl.text = val ?? '';
+          });
+        },
+      ),
+    );
+  }
 }

@@ -39,3 +39,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Include the whole data folder so the JSON asset is recognized by Flutter tools
+    - assets/data/
+    # keep explicit file reference for clarity
+    - assets/data/colombia_locations.json
