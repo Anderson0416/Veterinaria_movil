@@ -45,6 +45,21 @@ class LoginScreens extends StatelessWidget {
       userDoc = await firestore.collection('veterinarias').doc(user.uid).get();
       if (userDoc.exists) {
         role = 'veterinaria';
+
+        // Nueva validación: si la veterinaria no está activa, bloquear acceso
+        final data = userDoc.data() as Map<String, dynamic>;
+        if (data.containsKey('activo') && data['activo'] == false) {
+          if (Get.isDialogOpen ?? false) Get.back();
+          Get.snackbar(
+            "Cuenta inactiva",
+            "Tu cuenta está desactivada. Comunícate con VetCare para activarla.",
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.orange.withOpacity(0.8),
+            colorText: Colors.white,
+          );
+          await FirebaseAuth.instance.signOut();
+          return;
+        }
       } else {
         // 🔹 Buscar en veterinarios
         userDoc = await firestore.collection('veterinarians').doc(user.uid).get();

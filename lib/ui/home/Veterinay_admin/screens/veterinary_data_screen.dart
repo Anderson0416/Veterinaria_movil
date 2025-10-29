@@ -1,4 +1,3 @@
-// veterinary_data_screen.dart
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../controllers/veterinary_controller.dart';
 import '../../../../moldes/veterinary_model.dart';
-
 
 class VeterinaryDataScreen extends StatefulWidget {
   const VeterinaryDataScreen({super.key});
@@ -27,13 +25,17 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   final telefonoCtrl = TextEditingController();
   final correoCtrl = TextEditingController();
   final direccionCtrl = TextEditingController();
-  final horarioLVctrl = TextEditingController();
-  final horarioSabCtrl = TextEditingController();
+
+  // NUEVOS: Campos para horario LV y Sábado
+  final horarioLVInicioCtrl = TextEditingController();
+  final horarioLVFinCtrl = TextEditingController();
+  final horarioSabInicioCtrl = TextEditingController();
+  final horarioSabFinCtrl = TextEditingController();
 
   // Dropdowns
   String? departamentoSeleccionado;
   String? ciudadSeleccionada;
-  // These will be loaded from assets/data/colombia_locations.json
+
   final List<String> departamentos = [];
   final Map<String, List<String>> ciudadesPorDepartamento = {};
 
@@ -52,16 +54,10 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
       final jsonStr = await rootBundle.loadString('assets/data/colombia_locations.json');
       final data = jsonDecode(jsonStr);
 
-      // Support multiple possible structures:
-      // 1) Map<String, List> where keys are department names and values are lists of cities
-      // 2) List of objects: [{"departamento": "Name", "ciudades": [..]}, ...]
-      // 3) Map with key 'departamentos' containing list of objects
-
       departamentos.clear();
       ciudadesPorDepartamento.clear();
 
       if (data is Map<String, dynamic>) {
-        // Case 1 or case 3
         if (data.containsKey('departamentos') && data['departamentos'] is List) {
           for (final entry in data['departamentos']) {
             if (entry is Map<String, dynamic>) {
@@ -79,7 +75,6 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
             }
           }
         } else {
-          // Assume map of department -> list of cities
           for (final key in data.keys) {
             final value = data[key];
             if (value is List) {
@@ -89,7 +84,6 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
           }
         }
       } else if (data is List) {
-        // Case 2: list of {departamento, ciudades}
         for (final item in data) {
           if (item is Map<String, dynamic>) {
             final dept = item['departamento']?.toString() ?? '';
@@ -107,13 +101,9 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         }
       }
 
-      // Sort departments alphabetically for UX
       departamentos.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
       setState(() {});
     } catch (e) {
-      // If loading fails, fall back to a small default set so the UI still works.
-      // Avoid showing a snackbar that confuses the user; log for debugging instead.
-      // Default subset:
       departamentos.clear();
       ciudadesPorDepartamento.clear();
       departamentos.addAll([
@@ -132,8 +122,6 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         'Cesar': ['Valledupar', 'Bosconia', 'Aguachica'],
         'Santander': ['Bucaramanga', 'Floridablanca'],
       });
-      // Log the error for developers
-      // ignore: avoid_print
       print('Warning: failed to load colombia_locations.json: $e');
       setState(() {});
     }
@@ -149,54 +137,65 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         telefonoCtrl.text = data.telefono;
         correoCtrl.text = data.correo;
         direccionCtrl.text = data.direccion;
-        horarioLVctrl.text = data.horarioLV ?? '';
-        horarioSabCtrl.text = data.horarioSab ?? '';
         latitud = data.latitud;
         longitud = data.longitud;
         departamentoSeleccionado = data.departamento;
         ciudadSeleccionada = data.ciudad;
+
+        // 🔹 Separar horarios de lunes a viernes
+        if (data.horarioLV != null && data.horarioLV!.contains('-')) {
+          final partes = data.horarioLV!.split('-');
+          horarioLVInicioCtrl.text = partes[0].trim();
+          horarioLVFinCtrl.text = partes.length > 1 ? partes[1].trim() : '';
+        }
+
+        // 🔹 Separar horarios de sábado
+        if (data.horarioSab != null && data.horarioSab!.contains('-')) {
+          final partes = data.horarioSab!.split('-');
+          horarioSabInicioCtrl.text = partes[0].trim();
+          horarioSabFinCtrl.text = partes.length > 1 ? partes[1].trim() : '';
+        }
       });
     }
   }
 
- Future<void> _guardarCambios() async {
-  if (user == null) return;
+  Future<void> _guardarCambios() async {
+    if (user == null) return;
 
-  final updatedData = VeterinaryModel(
-    id: user!.uid,
-    nombre: nombreCtrl.text,
-    direccion: direccionCtrl.text,
-    telefono: telefonoCtrl.text,
-    nit: nitCtrl.text,
-    correo: correoCtrl.text,
-    horarioLV: horarioLVctrl.text,
-    horarioSab: horarioSabCtrl.text,
-    latitud: latitud,
-    longitud: longitud,
-    ciudad: ciudadSeleccionada,
-    departamento: departamentoSeleccionado,
-  );
+    final horarioLV = "${horarioLVInicioCtrl.text} - ${horarioLVFinCtrl.text}";
+    final horarioSab = "${horarioSabInicioCtrl.text} - ${horarioSabFinCtrl.text}";
 
-  // Actualizamos Firestore y eliminamos lat/long si son null
-  await FirebaseFirestore.instance
-      .collection('veterinarias')
-      .doc(user!.uid)
-      .update({
-    'nombre': updatedData.nombre,
-    'direccion': updatedData.direccion,
-    'telefono': updatedData.telefono,
-    'nit': updatedData.nit,
-    'correo': updatedData.correo,
-    'horarioLV': updatedData.horarioLV,
-    'horarioSab': updatedData.horarioSab,
-    'latitud': updatedData.latitud ?? FieldValue.delete(),
-    'longitud': updatedData.longitud ?? FieldValue.delete(),
-    'ciudad': updatedData.ciudad,
-    'departamento': updatedData.departamento,
-  });
+    final updatedData = VeterinaryModel(
+      id: user!.uid,
+      nombre: nombreCtrl.text,
+      direccion: direccionCtrl.text,
+      telefono: telefonoCtrl.text,
+      nit: nitCtrl.text,
+      correo: correoCtrl.text,
+      horarioLV: horarioLV,
+      horarioSab: horarioSab,
+      latitud: latitud,
+      longitud: longitud,
+      ciudad: ciudadSeleccionada,
+      departamento: departamentoSeleccionado,
+    );
 
-  Get.snackbar('Guardado', 'Cambios guardados exitosamente');
-}
+    await FirebaseFirestore.instance.collection('veterinarias').doc(user!.uid).update({
+      'nombre': updatedData.nombre,
+      'direccion': updatedData.direccion,
+      'telefono': updatedData.telefono,
+      'nit': updatedData.nit,
+      'correo': updatedData.correo,
+      'horarioLV': updatedData.horarioLV,
+      'horarioSab': updatedData.horarioSab,
+      'latitud': updatedData.latitud ?? FieldValue.delete(),
+      'longitud': updatedData.longitud ?? FieldValue.delete(),
+      'ciudad': updatedData.ciudad,
+      'departamento': updatedData.departamento,
+    });
+
+    Get.snackbar('Guardado', 'Cambios guardados exitosamente');
+  }
 
   Future<void> _obtenerUbicacionActual() async {
     final coords = await controller.getCurrentCoordinates();
@@ -225,14 +224,11 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
     }
 
     try {
-      // Eliminar latitud y longitud en Firestore
       await controller.removeVeterinaryCoordinates(user!.uid);
 
-      // Limpiar UI
       setState(() {
         latitud = null;
         longitud = null;
-        // Dirección, ciudad y departamento permanecen intactos
       });
 
       Get.snackbar('Ubicación', 'Coordenadas eliminadas exitosamente');
@@ -299,7 +295,7 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
                     ),
                   ],
                 ),
-                _buildTextFieldController("Dirección", direccionCtrl),
+                _buildTextField("Dirección", direccionCtrl),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -351,11 +347,21 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
               icon: Icons.access_time,
               title: "Horarios de Atención",
               children: [
+                const Text("Lunes a Viernes"),
                 Row(
                   children: [
-                    Expanded(child: _buildTextField("Lunes a Viernes", horarioLVctrl)),
+                    Expanded(child: _buildTextField("Hora de apertura", horarioLVInicioCtrl)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildTextField("Sábados", horarioSabCtrl)),
+                    Expanded(child: _buildTextField("Hora de cierre", horarioLVFinCtrl)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text("Sábados"),
+                Row(
+                  children: [
+                    Expanded(child: _buildTextField("Hora de apertura", horarioSabInicioCtrl)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildTextField("Hora de cierre", horarioSabFinCtrl)),
                   ],
                 ),
               ],
@@ -414,42 +420,47 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   }
 
   Widget _buildTextField(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.green),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        ),
-      ),
-    );
-  }
+  final esCampoHora = label.toLowerCase().contains("hora");
 
-  Widget _buildTextFieldController(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.green),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: TextField(
+      controller: controller,
+      readOnly: esCampoHora, // 🔹 Solo lectura si es un campo de hora
+      onTap: esCampoHora
+          ? () async {
+              final horaActual = TimeOfDay.now();
+              final horaSeleccionada = await showTimePicker(
+                context: context,
+                initialTime: horaActual,
+              );
+
+              if (horaSeleccionada != null) {
+                final horaFormateada = horaSeleccionada.format(context);
+                setState(() {
+                  controller.text = horaFormateada;
+                });
+              }
+            }
+          : null,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.green),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
+          borderRadius: BorderRadius.circular(10),
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        suffixIcon: esCampoHora
+            ? const Icon(Icons.access_time, color: Colors.green)
+            : null,
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildDropdown({required String label, required String? value, required List<String> items, required Function(String?) onChanged}) {
     return Padding(
