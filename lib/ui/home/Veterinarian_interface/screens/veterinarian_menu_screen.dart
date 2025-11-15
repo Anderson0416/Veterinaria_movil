@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/widgets/veterinarian_profile_screen.dart';
-import '../../../controllers/veterinarian_controller.dart';
-import '../../../moldes/veterinarian_models.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_appointments_screen.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_clinical_history_screen.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_anamnesis_screen.dart';
+import '../../../../../controllers/veterinarian_controller.dart';
+import '../../../../../moldes/veterinarian_models.dart';
 
 
 class VeterinarianMenuScreen extends StatefulWidget {
@@ -44,7 +48,7 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
       backgroundColor: const Color(0xFFF7FDF8),
       body: Column(
         children: [
-          // 🟢 HEADER con curva inferior y estilo verde oscuro
+          // HEADER con curva inferior y estilo verde oscuro
           Container(
             height: 150,
             decoration: const BoxDecoration(
@@ -83,7 +87,7 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                   ],
                 ),
 
-                // 🔘 Avatar con acceso al perfil
+                //  Avatar con acceso al perfil
                 InkWell(
                   onTap: () {
                     if (vet != null) {
@@ -120,16 +124,16 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
             ),
           ),
 
-          // 📋 CUERPO PRINCIPAL
+          //  CUERPO PRINCIPAL
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🔹 Sección de estadísticas
+                  // Sección de estadísticas
                   Row(
-                    children: const [
+                    children: [
                       Expanded(
                         child: _StatCard(
                           title: "Citas Hoy",
@@ -137,7 +141,7 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                           icon: Icons.calendar_today_outlined,
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: _StatCard(
                           title: "Atendidas",
@@ -145,37 +149,38 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                           icon: Icons.check_circle_outline,
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _StatCard(
-                          title: "Pendientes",
-                          value: "5",
-                          icon: Icons.pending_actions_outlined,
+                        child: _PendingAppointmentsStatCard(
+                          veterinarioId: _auth.currentUser?.uid ?? '',
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
-                  // 🔹 Sección de acciones
-                  const _MainOptionCard(
+                  //  Sección de acciones
+                  _MainOptionCard(
                     icon: Icons.schedule_outlined,
                     title: "Citas Programadas",
                     subtitle: "Ver agenda y gestionar citas",
+                    onTap: () => Get.to(() => const VetAppointmentsScreen()),
                   ),
-                  const _MainOptionCard(
+                  _MainOptionCard(
                     icon: Icons.pets_outlined,
                     title: "Historial Clínico",
                     subtitle: "Buscar y revisar historiales de mascotas",
+                    onTap: () => Get.to(() => const VetClinicalHistoryScreen()),
                   ),
-                  const _MainOptionCard(
+                  _MainOptionCard(
                     icon: Icons.assignment_ind_outlined,
                     title: "Realizar Anamnesis",
                     subtitle: "Crear nueva consulta médica",
+                    onTap: () => Get.to(() => const VetAnamnesisScreen()),
                   ),
                   const SizedBox(height: 24),
 
-                  // 🔹 Próximas citas
+                  //  Próximas citas
                   const Text(
                     "Próximas Citas Hoy",
                     style: TextStyle(
@@ -213,7 +218,7 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
   }
 }
 
-// 🟩 Tarjeta de estadísticas pequeñas
+// Tarjeta de estadísticas pequeñas
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -251,15 +256,72 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// 🟩 Tarjetas principales de acción
+// Tarjeta de citas pendientes dinámicas
+class _PendingAppointmentsStatCard extends StatelessWidget {
+  final String veterinarioId;
+
+  const _PendingAppointmentsStatCard({required this.veterinarioId});
+
+  @override
+  Widget build(BuildContext context) {
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: db
+          .collection('appointments')
+          .where('veterinarioId', isEqualTo: veterinarioId)
+          .where('estado', isEqualTo: 'pendiente')
+          .snapshots(),
+      builder: (context, snapshot) {
+        int pendingCount = 0;
+        if (snapshot.hasData) {
+          pendingCount = snapshot.data!.docs.length;
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                const Icon(Icons.pending_actions_outlined, color: Color(0xFF388E3C), size: 26),
+                const SizedBox(height: 6),
+                Text(
+                  pendingCount.toString(),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF388E3C),
+                  ),
+                ),
+                const Text(
+                  "Pendientes",
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+//  Tarjetas principales de acción
 class _MainOptionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback onTap;
+
   const _MainOptionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.onTap,
   });
 
   @override
@@ -285,13 +347,13 @@ class _MainOptionCard extends StatelessWidget {
         ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded,
             color: Colors.black38, size: 18),
-        onTap: () => Get.snackbar(title, "Función en desarrollo"),
+        onTap: onTap,
       ),
     );
   }
 }
 
-// 🟩 Tarjetas de próximas citas
+//  Tarjetas de próximas citas
 class _AppointmentCard extends StatelessWidget {
   final String time;
   final String service;

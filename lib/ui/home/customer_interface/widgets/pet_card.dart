@@ -35,7 +35,7 @@ class PetCard extends StatelessWidget {
             CircleAvatar(
               radius: 26,
               backgroundColor: Colors.green.shade50,
-              child: const Icon(Icons.favorite_border, color: Colors.green),
+              child: const Icon(Icons.pets, color: Colors.green),
             ),
             const SizedBox(width: 14),
 

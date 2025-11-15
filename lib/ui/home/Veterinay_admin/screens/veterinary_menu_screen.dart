@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/reports_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/service_management_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_data_screen.dart';
 import 'package:veterinaria_movil/ui/home/login_screens.dart';
@@ -134,7 +135,7 @@ class VeterinaryMenuScreen extends StatelessWidget {
               icon: Icons.bar_chart_outlined,
               title: "Generar Reportes",
               subtitle: "Estadísticas y análisis de rendimiento",
-              onTap: () => Get.snackbar("Reportes", "Función pendiente"),
+              onTap: () => Get.to(() => const ReportsScreen()),
             ),
 
             AdminActionCard(

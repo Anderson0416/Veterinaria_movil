@@ -17,7 +17,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
   final petController = Get.find<PetController>();
 
   void _agregarMascota() async {
-    // 🔹 Abrir el formulario y cerrar automáticamente al guardar
+    //  Abrir el formulario y cerrar automáticamente al guardar
     final resultado = await Get.dialog(const PetFormDialog());
     if (resultado == true) {
       Get.snackbar('Éxito', 'Mascota registrada correctamente',

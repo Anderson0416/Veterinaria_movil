@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/screens/customer_menu_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_menu_screen.dart';
-import 'package:veterinaria_movil/ui/home/veterinarian_menu_screen.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/veterinarian_menu_screen.dart';
 import 'package:veterinaria_movil/ui/select_user_screen.dart';
 
 // 🔹 Importa tu nueva pantalla de administración
