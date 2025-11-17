@@ -44,6 +44,23 @@ class ServiceController extends GetxController {
     }
   }
 
+  Future<ServiceModel?> getServiceById(String id) async {
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('types_services')
+        .doc(id)
+        .get();
+
+    if (!doc.exists) return null;
+
+    return ServiceModel.fromMap(doc.data()!, doc.id);
+  } catch (e) {
+    Get.snackbar("Error", "No se pudo obtener el servicio: $e");
+    return null;
+  }
+}
+
+
   //  Eliminar servicio
   Future<void> deleteService(String id) async {
     try {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:veterinaria_movil/moldes/appointment_model.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/factura_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_anamnesis_screen.dart';
 
 class VetAppointmentsScreen extends StatefulWidget {
@@ -212,6 +214,7 @@ class _AppointmentsList extends StatelessWidget {
               estado: data['estado'] ?? 'pendiente',
               duenoId: data['duenoId'] ?? '',
               veterinariaId: data['veterinariaId'] ?? '',
+              pagado: data['pagado'] ?? false,
             );
           },
         );
@@ -252,7 +255,6 @@ class _AppointmentsList extends StatelessWidget {
   }
 }
 
-// Tarjeta de cita individual
 class _AppointmentCard extends StatelessWidget {
   final String appointmentId;
   final String mascotaId;
@@ -263,6 +265,7 @@ class _AppointmentCard extends StatelessWidget {
   final String estado;
   final String duenoId;
   final String veterinariaId;
+  final bool pagado;
 
   const _AppointmentCard({
     required this.appointmentId,
@@ -274,6 +277,7 @@ class _AppointmentCard extends StatelessWidget {
     required this.estado,
     required this.duenoId,
     required this.veterinariaId,
+    required this.pagado,
   });
 
   Color _getStatusColor() {
@@ -304,142 +308,212 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Encabezado con nombre y hora
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('appointments')
+          .doc(appointmentId)
+          .get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox();
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+
+        // 🔥 AQUÍ TOMAMOS EL SERVICIO REAL
+        final servicioId = data['servicioId'] ?? "";
+        final precioServicio = data['precioServicio'] ?? 0;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: Colors.white,
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ENCABEZADO
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF388E3C).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.pets,
-                        color: Color(0xFF388E3C),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text(
-                          mascotaNombre,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF388E3C).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.pets,
+                            color: Color(0xFF388E3C),
+                            size: 20,
                           ),
                         ),
-                        Text(
-                          clienteNombre,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black54,
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              mascotaNombre,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              clienteNombre,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Text(
+                      hora,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // TIPO SERVICIO
+                Text(
+                  tipoServicio,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ESTADO + PAGADO
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        // Estado
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor().withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _getStatusText(),
+                            style: TextStyle(
+                              color: _getStatusColor(),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Pagado o no
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: pagado
+                                ? Colors.green.withOpacity(0.15)
+                                : Colors.red.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            pagado ? "Pagado" : "No Pagado",
+                            style: TextStyle(
+                              color: pagado ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
                     ),
+
+                    // BOTÓN PRINCIPAL
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (!pagado) {
+                          // 🔥 AHORA SÍ CITA COMPLETA CORRECTA
+                          final cita = CitaModel(
+                            id: appointmentId,
+                            mascotaId: mascotaId,
+                            duenoId: duenoId,
+                            veterinariaId: veterinariaId,
+                            veterinarioId: '',
+                            servicioId: servicioId,
+                            precioServicio: precioServicio,
+                            fecha: DateTime.now(),
+                            hora: hora,
+                            direccion: '',
+                            latitud: 0.0,
+                            longitud: 0.0,
+                            estado: 'pendiente',
+                            pagado: false,
+                            observaciones: '',
+                          );
+
+                          Get.to(() => FacturaScreen(cita: cita));
+                          return;
+                        }
+
+                        // SI YA ESTÁ PAGADA → IR A ANAMNESIS
+                        final vetDoc = await FirebaseFirestore.instance
+                            .collection('veterinarians')
+                            .doc(FirebaseAuth.instance.currentUser?.uid)
+                            .get();
+
+                        final veterinaryId =
+                            vetDoc.data()?['veterinaryId'] ?? veterinariaId;
+
+                        Get.to(() => VetAnamnesisScreen(
+                              appointmentId: appointmentId,
+                              mascotaId: mascotaId,
+                              mascotaNombre: mascotaNombre,
+                              duenoId: duenoId,
+                              veterinariaId: veterinaryId,
+                            ));
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            pagado ? const Color(0xFF388E3C) : Colors.orange,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                      ),
+                      child: Text(
+                        pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
                   ],
                 ),
-                Text(
-                  hora,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            
-            // Tipo de servicio
-            Text(
-              tipoServicio,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // Estado y botón
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Estado
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor().withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _getStatusText(),
-                    style: TextStyle(
-                      color: _getStatusColor(),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                // Botón Iniciar Consulta - ✅ CORREGIDO
-// Botón Iniciar Consulta - SOLO SI NO HA SIDO ATENDIDA
-if (estado.toLowerCase() != 'atendida')
-  ElevatedButton(
-    onPressed: () async {
-      // Obtener el veterinaryId correcto del veterinario logueado
-      final vetDoc = await FirebaseFirestore.instance
-          .collection('veterinarians')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .get();
-      
-      final veterinaryId = vetDoc.data()?['veterinaryId'] ?? veterinariaId;
-      
-      // Navegar a la pantalla de Anamnesis con el ID correcto
-      Get.to(() => VetAnamnesisScreen(
-        appointmentId: appointmentId,
-        mascotaId: mascotaId,
-        mascotaNombre: mascotaNombre,
-        duenoId: duenoId,
-        veterinariaId: veterinaryId,
-      ));
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF388E3C),
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    ),
-    child: const Text(
-      'Iniciar Consulta',
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

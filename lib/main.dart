@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:veterinaria_movil/controllers/animal_type_controller.dart';
 import 'package:veterinaria_movil/controllers/appointment_controllers.dart';
 import 'package:veterinaria_movil/controllers/breed_controller.dart';
+import 'package:veterinaria_movil/controllers/factura_controllers.dart';
 import 'package:veterinaria_movil/controllers/pet_controller.dart';
 import 'package:veterinaria_movil/controllers/veterinarian_controller.dart';
 import 'package:veterinaria_movil/controllers/add_user_controllers.dart';
@@ -27,6 +28,7 @@ Future<void> main() async {
   Get.put(AnimalTypeController());
   Get.put(BreedController());
   Get.put(AppointmentController());
+  Get.put(FacturaController());
   runApp(const MyApp());
 }
 

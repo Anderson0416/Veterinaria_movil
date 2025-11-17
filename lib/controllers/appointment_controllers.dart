@@ -60,7 +60,6 @@ class AppointmentController extends GetxController {
   Future<void> marcarComoPagada(CitaModel cita) async {
     await _db.collection("appointments").doc(cita.id).update({
       'pagado': true,
-      'estado': 'completado',
     });
 
     final factura = FacturaModel(
