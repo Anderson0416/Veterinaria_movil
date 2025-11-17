@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class CitaModel {
   String? id;
   String duenoId;           
@@ -33,7 +35,6 @@ class CitaModel {
     required this.observaciones, 
   });
 
-  // Convertir a JSON para Firestore
   Map<String, dynamic> toJson() {
     return {
       'duenoId': duenoId,
@@ -42,7 +43,7 @@ class CitaModel {
       'veterinarioId': veterinarioId,
       'servicioId': servicioId,
       'precioServicio': precioServicio,
-      'fecha': fecha.toIso8601String(),
+      'fecha': Timestamp.fromDate(fecha), // ✅ CAMBIO AQUÍ
       'hora': hora,
       'direccion': direccion,
       'latitud': latitud,
@@ -53,24 +54,33 @@ class CitaModel {
     };
   }
 
-  // Convertir desde Firestore
   factory CitaModel.fromJson(Map<String, dynamic> json, String id) {
+    // ✅ Manejar tanto Timestamp como String
+    DateTime parsedFecha;
+    if (json['fecha'] is Timestamp) {
+      parsedFecha = (json['fecha'] as Timestamp).toDate();
+    } else if (json['fecha'] is String) {
+      parsedFecha = DateTime.parse(json['fecha']);
+    } else {
+      parsedFecha = DateTime.now();
+    }
+
     return CitaModel(
       id: id,
-      duenoId: json['duenoId'],
-      mascotaId: json['mascotaId'],
-      veterinariaId: json['veterinariaId'],
-      veterinarioId: json['veterinarioId'],
-      servicioId: json['servicioId'],
-      precioServicio: (json['precioServicio'] as num).toDouble(),
-      fecha: DateTime.parse(json['fecha']),
-      hora: json['hora'],
-      direccion: json['direccion'],
-      latitud: (json['latitud'] as num).toDouble(),
-      longitud: (json['longitud'] as num).toDouble(),
+      duenoId: json['duenoId'] ?? '',
+      mascotaId: json['mascotaId'] ?? '',
+      veterinariaId: json['veterinariaId'] ?? '',
+      veterinarioId: json['veterinarioId'] ?? '',
+      servicioId: json['servicioId'] ?? '',
+      precioServicio: (json['precioServicio'] as num?)?.toDouble() ?? 0.0,
+      fecha: parsedFecha,
+      hora: json['hora'] ?? '',
+      direccion: json['direccion'] ?? '',
+      latitud: (json['latitud'] as num?)?.toDouble() ?? 0.0,
+      longitud: (json['longitud'] as num?)?.toDouble() ?? 0.0,
       estado: json['estado'] ?? 'pendiente',
       pagado: json['pagado'] ?? false,
-      observaciones: json['observaciones'] ?? "", 
+      observaciones: json['observaciones'] ?? '', 
     );
   }
 }

@@ -125,7 +125,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
     }
   }
 
-  Future<void> _confirmarCita() async {
+ Future<void> _confirmarCita() async {
     if (!_formKey.currentState!.validate()) {
       Get.snackbar("Error", "Completa todos los campos obligatorios.");
       return;
@@ -164,6 +164,25 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
+    // ✅ OBTENER NOMBRE DEL CLIENTE
+    String clienteNombre = 'Cliente';
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userId)
+          .get();
+      
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        final nombre = data?['nombre'] ?? '';
+        final apellido = data?['apellido'] ?? '';
+        clienteNombre = '$nombre $apellido'.trim();
+        if (clienteNombre.isEmpty) clienteNombre = 'Cliente';
+      }
+    } catch (e) {
+      print('Error obteniendo nombre del cliente: $e');
+    }
+
     final String direccionCita =
         modalidadSeleccionada == "Presencial"
             ? (direccionVeterinaria ?? "")
@@ -184,33 +203,43 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
       longitud: ubicacionLng!,
       estado: "pendiente",
       pagado: false,
-      observaciones: observacionesCtrl.text.trim(), // ← AGREGADA
+      observaciones: observacionesCtrl.text.trim(),
     );
 
     try {
       final idCita = await appointmentController.crearCita(cita);
+      
+      // ✅ ACTUALIZAR CON LOS NOMBRES ADICIONALES PARA LA UI DEL VETERINARIO
+      await FirebaseFirestore.instance
+          .collection('appointments')
+          .doc(idCita)
+          .update({
+            'mascotaNombre': mascotaSeleccionada ?? 'Sin nombre',
+            'clienteNombre': clienteNombre,
+            'tipoServicio': servicioSeleccionadoNombre?.split(' — ').first ?? 'Consulta',
+          });
 
-  Get.snackbar(
-    "Cita creada",
-    "La cita fue registrada exitosamente.",
-    backgroundColor: Colors.green,
-    colorText: Colors.white,
-    snackPosition: SnackPosition.BOTTOM,
-    duration: const Duration(seconds: 2),
-  );
+      Get.snackbar(
+        "Cita creada",
+        "La cita fue registrada exitosamente.",
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
 
-  await Future.delayed(const Duration(milliseconds: 800));
-  Get.offAll(() => const CustomerMenuScreen());
+      await Future.delayed(const Duration(milliseconds: 800));
+      Get.offAll(() => const CustomerMenuScreen());
 
-} catch (e) {
-  Get.snackbar(
-    "Error",
-    "No se pudo guardar la cita: $e",
-    backgroundColor: Colors.red,
-    colorText: Colors.white,
-    snackPosition: SnackPosition.BOTTOM,
-  );
-  }
+    } catch (e) {
+      Get.snackbar(
+        "Error",
+        "No se pudo guardar la cita: $e",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   @override

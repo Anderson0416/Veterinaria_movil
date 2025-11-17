@@ -44,3 +44,4 @@ flutter:
     - assets/data/
     # keep explicit file reference for clarity
     - assets/data/colombia_locations.json
+

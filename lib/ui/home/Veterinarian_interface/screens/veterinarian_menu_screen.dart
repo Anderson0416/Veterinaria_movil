@@ -5,10 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/widgets/veterinarian_profile_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_appointments_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_clinical_history_screen.dart';
-import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_anamnesis_screen.dart';
 import '../../../../../controllers/veterinarian_controller.dart';
 import '../../../../../moldes/veterinarian_models.dart';
-
 
 class VeterinarianMenuScreen extends StatefulWidget {
   const VeterinarianMenuScreen({super.key});
@@ -52,7 +50,7 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
           Container(
             height: 150,
             decoration: const BoxDecoration(
-              color: Color(0xFF388E3C), // Verde oscuro institucional
+              color: Color(0xFF388E3C),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(25),
                 bottomRight: Radius.circular(25),
@@ -62,7 +60,6 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 👨‍⚕️ Información del veterinario
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -86,8 +83,6 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                     ),
                   ],
                 ),
-
-                //  Avatar con acceso al perfil
                 InkWell(
                   onTap: () {
                     if (vet != null) {
@@ -124,29 +119,23 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
             ),
           ),
 
-          //  CUERPO PRINCIPAL
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Sección de estadísticas
                   Row(
                     children: [
                       Expanded(
-                        child: _StatCard(
-                          title: "Citas Hoy",
-                          value: "8",
-                          icon: Icons.calendar_today_outlined,
+                        child: _TodayAppointmentsStatCard(
+                          veterinarioId: _auth.currentUser?.uid ?? '',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _StatCard(
-                          title: "Atendidas",
-                          value: "3",
-                          icon: Icons.check_circle_outline,
+                        child: _AttendedAppointmentsStatCard(
+                          veterinarioId: _auth.currentUser?.uid ?? '',
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -159,7 +148,6 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  //  Sección de acciones
                   _MainOptionCard(
                     icon: Icons.schedule_outlined,
                     title: "Citas Programadas",
@@ -170,17 +158,10 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                     icon: Icons.pets_outlined,
                     title: "Historial Clínico",
                     subtitle: "Buscar y revisar historiales de mascotas",
-                    onTap: () => Get.to(() => const VetClinicalHistoryScreen()),
-                  ),
-                  _MainOptionCard(
-                    icon: Icons.assignment_ind_outlined,
-                    title: "Realizar Anamnesis",
-                    subtitle: "Crear nueva consulta médica",
-                    onTap: () => Get.to(() => const VetAnamnesisScreen()),
+                     onTap: () => Get.to(() => const VetClinicalHistoryScreen()),
                   ),
                   const SizedBox(height: 24),
 
-                  //  Próximas citas
                   const Text(
                     "Próximas Citas Hoy",
                     style: TextStyle(
@@ -190,23 +171,8 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const _AppointmentCard(
-                    time: "10:00 - Max",
-                    service: "Consulta general",
-                    status: "Confirmada",
-                    client: "María González",
-                  ),
-                  const _AppointmentCard(
-                    time: "11:30 - Rocky",
-                    service: "Control dental",
-                    status: "En curso",
-                    client: "Ana Martín",
-                  ),
-                  const _AppointmentCard(
-                    time: "15:00 - Bella",
-                    service: "Consulta general",
-                    status: "Confirmada",
-                    client: "Luis Herrera",
+                  _TodayAppointmentsList(
+                    veterinarioId: _auth.currentUser?.uid ?? '',
                   ),
                 ],
               ),
@@ -218,45 +184,144 @@ class _VeterinarianMenuScreenState extends State<VeterinarianMenuScreen> {
   }
 }
 
-// Tarjeta de estadísticas pequeñas
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  const _StatCard({required this.title, required this.value, required this.icon});
+// 📊 Tarjeta de Citas HOY - FUNCIONAL
+class _TodayAppointmentsStatCard extends StatelessWidget {
+  final String veterinarioId;
+
+  const _TodayAppointmentsStatCard({required this.veterinarioId});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          children: [
-            Icon(icon, color: const Color(0xFF388E3C), size: 26),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF388E3C),
-              ),
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: db
+          .collection('appointments')
+          .where('veterinarioId', isEqualTo: veterinarioId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        int todayCount = 0;
+        
+        if (snapshot.hasData) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final tomorrow = today.add(const Duration(days: 1));
+
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            if (data['fecha'] != null) {
+              final fechaTimestamp = data['fecha'] as Timestamp;
+              final fechaCita = fechaTimestamp.toDate();
+              
+              if (fechaCita.isAfter(today.subtract(const Duration(seconds: 1))) &&
+                  fechaCita.isBefore(tomorrow)) {
+                todayCount++;
+              }
+            }
+          }
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                const Icon(Icons.calendar_today_outlined, color: Color(0xFF388E3C), size: 26),
+                const SizedBox(height: 6),
+                Text(
+                  todayCount.toString(),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF388E3C),
+                  ),
+                ),
+                const Text(
+                  "Citas Hoy",
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
             ),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-// Tarjeta de citas pendientes dinámicas
+// ✅ Tarjeta de Citas ATENDIDAS - FUNCIONAL
+class _AttendedAppointmentsStatCard extends StatelessWidget {
+  final String veterinarioId;
+
+  const _AttendedAppointmentsStatCard({required this.veterinarioId});
+
+  @override
+  Widget build(BuildContext context) {
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: db
+          .collection('appointments')
+          .where('veterinarioId', isEqualTo: veterinarioId)
+          .where('estado', isEqualTo: 'atendida')
+          .snapshots(),
+      builder: (context, snapshot) {
+        int attendedCount = 0;
+        
+        if (snapshot.hasData) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final tomorrow = today.add(const Duration(days: 1));
+
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            if (data['fecha'] != null) {
+              final fechaTimestamp = data['fecha'] as Timestamp;
+              final fechaCita = fechaTimestamp.toDate();
+              
+              if (fechaCita.isAfter(today.subtract(const Duration(seconds: 1))) &&
+                  fechaCita.isBefore(tomorrow)) {
+                attendedCount++;
+              }
+            }
+          }
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Color(0xFF388E3C), size: 26),
+                const SizedBox(height: 6),
+                Text(
+                  attendedCount.toString(),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF388E3C),
+                  ),
+                ),
+                const Text(
+                  "Atendidas",
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ⏳ Tarjeta de citas pendientes dinámicas
 class _PendingAppointmentsStatCard extends StatelessWidget {
   final String veterinarioId;
 
@@ -274,8 +339,24 @@ class _PendingAppointmentsStatCard extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         int pendingCount = 0;
+        
         if (snapshot.hasData) {
-          pendingCount = snapshot.data!.docs.length;
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final tomorrow = today.add(const Duration(days: 1));
+
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            if (data['fecha'] != null) {
+              final fechaTimestamp = data['fecha'] as Timestamp;
+              final fechaCita = fechaTimestamp.toDate();
+              
+              if (fechaCita.isAfter(today.subtract(const Duration(seconds: 1))) &&
+                  fechaCita.isBefore(tomorrow)) {
+                pendingCount++;
+              }
+            }
+          }
         }
 
         return Card(
@@ -309,8 +390,130 @@ class _PendingAppointmentsStatCard extends StatelessWidget {
   }
 }
 
+// 📋 Lista de citas de HOY - FUNCIONAL
+class _TodayAppointmentsList extends StatelessWidget {
+  final String veterinarioId;
 
-//  Tarjetas principales de acción
+  const _TodayAppointmentsList({required this.veterinarioId});
+
+  @override
+  Widget build(BuildContext context) {
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: db
+          .collection('appointments')
+          .where('veterinarioId', isEqualTo: veterinarioId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(color: Color(0xFF388E3C)),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return _emptyState();
+        }
+
+        // Filtrar citas de hoy en memoria
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tomorrow = today.add(const Duration(days: 1));
+
+        final todayAppointments = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['fecha'] == null) return false;
+          
+          final fechaTimestamp = data['fecha'] as Timestamp;
+          final fechaCita = fechaTimestamp.toDate();
+          
+          return fechaCita.isAfter(today.subtract(const Duration(seconds: 1))) &&
+                 fechaCita.isBefore(tomorrow);
+        }).toList();
+
+        if (todayAppointments.isEmpty) {
+          return _emptyState();
+        }
+
+        // Ordenar por hora
+        todayAppointments.sort((a, b) {
+          final dataA = a.data() as Map<String, dynamic>;
+          final dataB = b.data() as Map<String, dynamic>;
+          final horaA = dataA['hora'] ?? '';
+          final horaB = dataB['hora'] ?? '';
+          return horaA.compareTo(horaB);
+        });
+
+        return Column(
+          children: todayAppointments.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return _AppointmentCard(
+              time: "${data['hora'] ?? 'Sin hora'} - ${data['mascotaNombre'] ?? 'Sin nombre'}",
+              service: data['tipoServicio'] ?? 'Consulta general',
+              status: _getStatusText(data['estado'] ?? 'pendiente'),
+              client: data['clienteNombre'] ?? 'Cliente desconocido',
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _emptyState() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(
+              Icons.calendar_month_outlined,
+              size: 48,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "No tienes citas programadas para hoy",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "¡Disfruta tu día libre! 🎉",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey.shade400,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getStatusText(String estado) {
+    switch (estado.toLowerCase()) {
+      case 'confirmada':
+        return 'Confirmada';
+      case 'atendida':
+        return 'Atendida';
+      case 'pendiente':
+        return 'Pendiente';
+      default:
+        return 'Pendiente';
+    }
+  }
+}
+
 class _MainOptionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -353,7 +556,6 @@ class _MainOptionCard extends StatelessWidget {
   }
 }
 
-//  Tarjetas de próximas citas
 class _AppointmentCard extends StatelessWidget {
   final String time;
   final String service;
@@ -369,10 +571,12 @@ class _AppointmentCard extends StatelessWidget {
 
   Color getStatusColor() {
     switch (status) {
-      case "En curso":
-        return Colors.orange.shade600;
       case "Confirmada":
         return Colors.green.shade600;
+      case "Atendida":
+        return Colors.blue.shade600;
+      case "Pendiente":
+        return Colors.orange.shade600;
       default:
         return Colors.grey.shade400;
     }
