@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:veterinaria_movil/moldes/clinical_history_model.dart';
 import 'package:intl/intl.dart';
 
 class PetHistoryScreen extends StatelessWidget {
@@ -13,57 +12,6 @@ class PetHistoryScreen extends StatelessWidget {
     required this.mascotaId,
     required this.mascotaNombre,
   });
-
-  // Este Stream trae TODOS los historiales de esta mascota en TODAS las veterinarias
-  Stream<List<ClinicalHistoryModel>> _getAllHistoriesByPetId(String petId) {
-    return FirebaseFirestore.instance
-        .collection('clinical_histories')
-        .where('mascotaId', isEqualTo: petId)
-        .orderBy('fecha', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ClinicalHistoryModel.fromMap(doc.data(), doc.id))
-          .toList();
-    });
-  }
-
-  Future<void> _showCompleteHistory(BuildContext context, ClinicalHistoryModel history) async {
-    final appointmentDoc = await FirebaseFirestore.instance
-        .collection('appointments')
-        .doc(history.citaId)
-        .get();
-
-    final ownerDoc = await FirebaseFirestore.instance
-        .collection('customers')
-        .doc(history.duenoId)
-        .get();
-
-    final vetDoc = await FirebaseFirestore.instance
-        .collection('veterinarians')
-        .doc(history.veterinarioId)
-        .get();
-
-    final veterinariaDoc = await FirebaseFirestore.instance
-        .collection('veterinarias')
-        .doc(history.veterinariaId)
-        .get();
-
-    if (!context.mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CompleteHistoryModal(
-        history: history,
-        appointmentData: appointmentDoc.data(),
-        ownerData: ownerDoc.data(),
-        vetData: vetDoc.data(),
-        veterinariaData: veterinariaDoc.data(),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +29,13 @@ class PetHistoryScreen extends StatelessWidget {
           onPressed: () => Get.back(),
         ),
       ),
-      body: StreamBuilder<List<ClinicalHistoryModel>>(
-        stream: _getAllHistoriesByPetId(mascotaId),
+      body: StreamBuilder<QuerySnapshot>(
+        // OPTIMIZACIÓN: StreamBuilder directo con QuerySnapshot (sin mapeo intermedio)
+        stream: FirebaseFirestore.instance
+            .collection('clinical_history')
+            .where('mascotaId', isEqualTo: mascotaId)
+            .orderBy('fecha', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -105,12 +58,18 @@ class PetHistoryScreen extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  ),
                 ],
               ),
             );
           }
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -135,16 +94,17 @@ class PetHistoryScreen extends StatelessWidget {
             );
           }
 
-          final histories = snapshot.data!;
-
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: histories.length,
+            itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              final history = histories[index];
+              final doc = snapshot.data!.docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+
               return _HistoryCard(
-                history: history,
-                onViewComplete: () => _showCompleteHistory(context, history),
+                historyId: doc.id,
+                data: data,
+                onTap: () => _showCompleteHistory(context, doc.id, data),
               );
             },
           );
@@ -152,20 +112,58 @@ class PetHistoryScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showCompleteHistory(BuildContext context, String historyId, Map<String, dynamic> historyData) async {
+    // Cargar datos relacionados
+    final appointmentDoc = historyData['citaId'] != null
+        ? await FirebaseFirestore.instance.collection('appointments').doc(historyData['citaId']).get()
+        : null;
+
+    final ownerDoc = historyData['duenoId'] != null
+        ? await FirebaseFirestore.instance.collection('customers').doc(historyData['duenoId']).get()
+        : null;
+
+    final vetDoc = historyData['veterinarioId'] != null
+        ? await FirebaseFirestore.instance.collection('veterinarians').doc(historyData['veterinarioId']).get()
+        : null;
+
+    final veterinariaDoc = historyData['veterinariaId'] != null
+        ? await FirebaseFirestore.instance.collection('veterinarias').doc(historyData['veterinariaId']).get()
+        : null;
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CompleteHistoryModal(
+        historyData: historyData,
+        appointmentData: appointmentDoc?.data(),
+        ownerData: ownerDoc?.data(),
+        vetData: vetDoc?.data(),
+        veterinariaData: veterinariaDoc?.data(),
+      ),
+    );
+  }
 }
 
-// Tarjeta de Historial
+// Tarjeta de Historial - OPTIMIZADA
 class _HistoryCard extends StatelessWidget {
-  final ClinicalHistoryModel history;
-  final VoidCallback onViewComplete;
+  final String historyId;
+  final Map<String, dynamic> data;
+  final VoidCallback onTap;
 
   const _HistoryCard({
-    required this.history,
-    required this.onViewComplete,
+    required this.historyId,
+    required this.data,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fecha = data['fecha'] != null ? (data['fecha'] as Timestamp).toDate() : DateTime.now();
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -196,7 +194,7 @@ class _HistoryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('dd/MM/yyyy').format(history.fecha),
+                        DateFormat('dd/MM/yyyy').format(fecha),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -204,10 +202,9 @@ class _HistoryCard extends StatelessWidget {
                         ),
                       ),
                       FutureBuilder<DocumentSnapshot>(
-                        future: FirebaseFirestore.instance
-                            .collection('veterinarias')
-                            .doc(history.veterinariaId)
-                            .get(),
+                        future: data['veterinariaId'] != null
+                            ? FirebaseFirestore.instance.collection('veterinarias').doc(data['veterinariaId']).get()
+                            : null,
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
                             return const Text(
@@ -215,8 +212,8 @@ class _HistoryCard extends StatelessWidget {
                               style: TextStyle(fontSize: 13, color: Colors.black54),
                             );
                           }
-                          final data = snapshot.data?.data() as Map<String, dynamic>?;
-                          final nombre = data?['nombre'] ?? 'Veterinaria desconocida';
+                          final vetData = snapshot.data?.data() as Map<String, dynamic>?;
+                          final nombre = vetData?['nombre'] ?? 'Veterinaria desconocida';
                           return Text(
                             nombre,
                             style: const TextStyle(
@@ -237,7 +234,7 @@ class _HistoryCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${history.peso} kg',
+                    '${data['peso'] ?? 0} kg',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -248,16 +245,16 @@ class _HistoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              history.motivoConsulta.length > 60
-                  ? '${history.motivoConsulta.substring(0, 60)}...'
-                  : history.motivoConsulta,
+              (data['motivoConsulta'] ?? '').length > 60
+                  ? '${(data['motivoConsulta'] ?? '').substring(0, 60)}...'
+                  : data['motivoConsulta'] ?? '',
               style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: onViewComplete,
+                onPressed: onTap,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF388E3C),
                   foregroundColor: Colors.white,
@@ -281,14 +278,14 @@ class _HistoryCard extends StatelessWidget {
 
 // Modal de historial completo
 class _CompleteHistoryModal extends StatelessWidget {
-  final ClinicalHistoryModel history;
+  final Map<String, dynamic> historyData;
   final Map<String, dynamic>? appointmentData;
   final Map<String, dynamic>? ownerData;
   final Map<String, dynamic>? vetData;
   final Map<String, dynamic>? veterinariaData;
 
   const _CompleteHistoryModal({
-    required this.history,
+    required this.historyData,
     this.appointmentData,
     this.ownerData,
     this.vetData,
@@ -297,14 +294,11 @@ class _CompleteHistoryModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fecha = historyData['fecha'] != null ? (historyData['fecha'] as Timestamp).toDate() : DateTime.now();
     final ownerName = ownerData != null
         ? '${ownerData!['nombre'] ?? ''} ${ownerData!['apellido'] ?? ''}'.trim()
         : 'Cliente desconocido';
-
-    final vetName = vetData != null
-        ? 'Dr. ${vetData!['apellido'] ?? 'Veterinario'}'
-        : 'Veterinario desconocido';
-
+    final vetName = vetData != null ? 'Dr. ${vetData!['apellido'] ?? 'Veterinario'}' : 'Veterinario desconocido';
     final veterinariaName = veterinariaData?['nombre'] ?? 'Veterinaria desconocida';
 
     return DraggableScrollableSheet(
@@ -356,8 +350,8 @@ class _CompleteHistoryModal extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SectionTitle(title: 'Información de la Consulta'),
-                    _InfoRow(label: 'Fecha', value: DateFormat('dd/MM/yyyy').format(history.fecha)),
-                    _InfoRow(label: 'Mascota', value: history.mascotaNombre),
+                    _InfoRow(label: 'Fecha', value: DateFormat('dd/MM/yyyy').format(fecha)),
+                    _InfoRow(label: 'Mascota', value: historyData['mascotaNombre'] ?? ''),
                     _InfoRow(label: 'Veterinaria', value: veterinariaName),
                     _InfoRow(label: 'Dueño', value: ownerName),
                     if (ownerData?['numeroDocumento'] != null)
@@ -365,51 +359,39 @@ class _CompleteHistoryModal extends StatelessWidget {
                     _InfoRow(label: 'Veterinario', value: vetName),
                     if (appointmentData?['tipoServicio'] != null)
                       _InfoRow(label: 'Tipo de Servicio', value: appointmentData!['tipoServicio']),
-                    if (appointmentData?['hora'] != null)
-                      _InfoRow(label: 'Hora', value: appointmentData!['hora']),
-
+                    if (appointmentData?['hora'] != null) _InfoRow(label: 'Hora', value: appointmentData!['hora']),
                     const SizedBox(height: 20),
-
                     _SectionTitle(title: 'Datos del Paciente'),
-                    _InfoRow(label: 'Peso', value: '${history.peso} kg'),
-                    _InfoRow(label: 'Temperatura', value: '${history.temperatura} °C'),
-                    _InfoRow(label: 'Frecuencia Cardíaca', value: '${history.frecuenciaCardiaca} bpm'),
-
+                    _InfoRow(label: 'Peso', value: '${historyData['peso'] ?? 0} kg'),
+                    _InfoRow(label: 'Temperatura', value: '${historyData['temperatura'] ?? 0} °C'),
+                    _InfoRow(label: 'Frecuencia Cardíaca', value: '${historyData['frecuenciaCardiaca'] ?? 0} bpm'),
                     const SizedBox(height: 20),
-
                     _SectionTitle(title: 'Motivo de Consulta'),
-                    _TextBlock(text: history.motivoConsulta),
-
+                    _TextBlock(text: historyData['motivoConsulta'] ?? ''),
                     const SizedBox(height: 20),
-
                     _SectionTitle(title: 'Examen Físico'),
-                    _InfoRow(label: 'Estado General', value: history.estadoGeneral),
-                    if (history.observacionesExamen.isNotEmpty) ...[
+                    _InfoRow(label: 'Estado General', value: historyData['estadoGeneral'] ?? ''),
+                    if ((historyData['observacionesExamen'] ?? '').isNotEmpty) ...[
                       const SizedBox(height: 8),
                       const Text(
                         'Observaciones:',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const SizedBox(height: 4),
-                      _TextBlock(text: history.observacionesExamen),
+                      _TextBlock(text: historyData['observacionesExamen']),
                     ],
-
                     const SizedBox(height: 20),
-
                     _SectionTitle(title: 'Diagnóstico'),
-                    _TextBlock(text: history.diagnostico),
-
+                    _TextBlock(text: historyData['diagnostico'] ?? ''),
                     const SizedBox(height: 20),
-
                     _SectionTitle(title: 'Tratamiento'),
-                    _TextBlock(text: history.tratamiento),
-
-                    if (history.proximaCita != null) ...[
+                    _TextBlock(text: historyData['tratamiento'] ?? ''),
+                    if (historyData['proximaCita'] != null) ...[
                       const SizedBox(height: 20),
                       _SectionTitle(title: 'Próxima Cita'),
                       _InfoRow(
                         label: 'Fecha programada',
-                        value: DateFormat('dd/MM/yyyy').format(history.proximaCita!),
+                        value: DateFormat('dd/MM/yyyy').format((historyData['proximaCita'] as Timestamp).toDate()),
                       ),
                     ],
                   ],
