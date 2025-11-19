@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart'; // 🔹 AGREGADO
 import '../../../../controllers/veterinary_controller.dart';
 import '../../../../moldes/veterinary_model.dart';
 
@@ -197,14 +198,100 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
     Get.snackbar('Guardado', 'Cambios guardados exitosamente');
   }
 
+  // 🔹🔹🔹 NUEVA FUNCIÓN CON SOLICITUD DE PERMISOS 🔹🔹🔹
   Future<void> _obtenerUbicacionActual() async {
-    final coords = await controller.getCurrentCoordinates();
-    if (coords == null) return;
+    bool serviceEnabled;
+    LocationPermission permission;
 
-    setState(() {
-      latitud = coords['latitud'];
-      longitud = coords['longitud'];
-    });
+    // 1️⃣ Verificar si el servicio de ubicación está habilitado
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      Get.snackbar(
+        'Ubicación deshabilitada',
+        'Por favor activa el GPS en tu dispositivo',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // 2️⃣ Verificar permisos actuales
+    permission = await Geolocator.checkPermission();
+    
+    if (permission == LocationPermission.denied) {
+      // Solicitar permisos si fueron denegados
+      permission = await Geolocator.requestPermission();
+      
+      if (permission == LocationPermission.denied) {
+        Get.snackbar(
+          'Permisos denegados',
+          'Necesitamos acceso a tu ubicación para continuar',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      // Los permisos fueron denegados permanentemente
+      Get.defaultDialog(
+        title: 'Permisos requeridos',
+        middleText: 'Los permisos de ubicación están permanentemente denegados. Por favor, actívalos desde la configuración de tu dispositivo.',
+        textConfirm: 'Abrir configuración',
+        textCancel: 'Cancelar',
+        confirmTextColor: Colors.white,
+        onConfirm: () async {
+          Get.back();
+          await Geolocator.openAppSettings();
+        },
+      );
+      return;
+    }
+
+    // 3️⃣ Si llegamos aquí, tenemos permisos - obtener ubicación
+    try {
+      Get.snackbar(
+        'Obteniendo ubicación',
+        'Por favor espera...',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        showProgressIndicator: true,
+      );
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        latitud = position.latitude;
+        longitud = position.longitude;
+      });
+
+      Get.snackbar(
+        '¡Ubicación obtenida!',
+        'Coordenadas registradas correctamente',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'No se pudo obtener la ubicación: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   void _abrirEnGoogleMaps() async {
@@ -420,47 +507,43 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
   }
 
   Widget _buildTextField(String label, TextEditingController controller) {
-  final esCampoHora = label.toLowerCase().contains("hora");
+    final esCampoHora = label.toLowerCase().contains("hora");
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: TextField(
-      controller: controller,
-      readOnly: esCampoHora, // 🔹 Solo lectura si es un campo de hora
-      onTap: esCampoHora
-          ? () async {
-              final horaActual = TimeOfDay.now();
-              final horaSeleccionada = await showTimePicker(
-                context: context,
-                initialTime: horaActual,
-              );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: TextField(
+        controller: controller,
+        readOnly: esCampoHora,
+        onTap: esCampoHora
+            ? () async {
+                final horaActual = TimeOfDay.now();
+                final horaSeleccionada = await showTimePicker(
+                  context: context,
+                  initialTime: horaActual,
+                );
 
-              if (horaSeleccionada != null) {
-                final horaFormateada = horaSeleccionada.format(context);
-                setState(() {
-                  controller.text = horaFormateada;
-                });
+                if (horaSeleccionada != null) {
+                  final horaFormateada = horaSeleccionada.format(context);
+                  setState(() {
+                    controller.text = horaFormateada;
+                  });
+                }
               }
-            }
-          : null,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.green),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        suffixIcon: esCampoHora
-            ? const Icon(Icons.access_time, color: Colors.green)
             : null,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.green),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green.shade400, width: 1.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          suffixIcon: esCampoHora ? const Icon(Icons.access_time, color: Colors.green) : null,
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildDropdown({required String label, required String? value, required List<String> items, required Function(String?) onChanged}) {
     return Padding(

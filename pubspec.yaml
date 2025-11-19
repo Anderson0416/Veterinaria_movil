@@ -28,12 +28,14 @@ dependencies:
   # Geolocalización y direcciones
   geolocator: ^13.0.1
   geocoding: ^3.0.0
+  
 
   # 🔹 Abrir enlaces externos (como Google Maps)
   url_launcher: ^6.3.0
   flutter_email_sender: ^8.0.0
   path_provider: ^2.1.5
   pdf: ^3.11.3
+  permission_handler: ^11.0.1  
 
 dev_dependencies:
   flutter_test:
