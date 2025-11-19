@@ -61,17 +61,5 @@ class AppointmentController extends GetxController {
     await _db.collection("appointments").doc(cita.id).update({
       'pagado': true,
     });
-
-    final factura = FacturaModel(
-      citaId: cita.id!,
-      duenoId: cita.duenoId,
-      veterinariaId: cita.veterinariaId,
-      servicioId: cita.servicioId,
-      servicioNombre: "", 
-      total: cita.precioServicio,
-      fechaPago: DateTime.now(),
-    );
-
-    await _db.collection("facturas").add(factura.toJson());
   }
 }

@@ -15,7 +15,7 @@ class VetAppointmentsScreen extends StatefulWidget {
 
 class _VetAppointmentsScreenState extends State<VetAppointmentsScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  String selectedFilter = 'Hoy'; // Filtro por defecto
+  String selectedFilter = 'Hoy';
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,6 @@ class _VetAppointmentsScreenState extends State<VetAppointmentsScreen> {
       ),
       body: Column(
         children: [
-          // Filtros: Hoy, Mañana, Esta Semana
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -58,8 +57,7 @@ class _VetAppointmentsScreenState extends State<VetAppointmentsScreen> {
               ],
             ),
           ),
-          
-          // Lista de citas filtradas
+
           Expanded(
             child: _AppointmentsList(
               veterinarioId: _auth.currentUser?.uid ?? '',
@@ -72,7 +70,6 @@ class _VetAppointmentsScreenState extends State<VetAppointmentsScreen> {
   }
 }
 
-// Chip de filtro personalizado
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -107,7 +104,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-// Lista de citas con filtros
 class _AppointmentsList extends StatelessWidget {
   final String veterinarioId;
   final String filter;
@@ -117,13 +113,10 @@ class _AppointmentsList extends StatelessWidget {
     required this.filter,
   });
 
-  // Extraer fecha de cualquier formato
   DateTime? _extractDate(dynamic fechaData) {
     if (fechaData == null) return null;
-    
-    if (fechaData is Timestamp) {
-      return fechaData.toDate();
-    } else if (fechaData is String) {
+    if (fechaData is Timestamp) return fechaData.toDate();
+    if (fechaData is String) {
       try {
         return DateTime.parse(fechaData);
       } catch (e) {
@@ -133,22 +126,18 @@ class _AppointmentsList extends StatelessWidget {
     return null;
   }
 
-  // Verificar si la fecha está en el rango del filtro
   bool _isDateInRange(DateTime fecha) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     if (filter == 'Hoy') {
-      final tomorrow = today.add(const Duration(days: 1));
       return fecha.isAfter(today.subtract(const Duration(seconds: 1))) &&
-             fecha.isBefore(tomorrow);
+             fecha.isBefore(today.add(const Duration(days: 1)));
     } else if (filter == 'Mañana') {
       final tomorrow = today.add(const Duration(days: 1));
-      final dayAfterTomorrow = tomorrow.add(const Duration(days: 1));
       return fecha.isAfter(tomorrow.subtract(const Duration(seconds: 1))) &&
-             fecha.isBefore(dayAfterTomorrow);
+             fecha.isBefore(tomorrow.add(const Duration(days: 1)));
     } else {
-      // Esta Semana (próximos 7 días desde hoy)
       final endOfWeek = today.add(const Duration(days: 7));
       return fecha.isAfter(today.subtract(const Duration(seconds: 1))) &&
              fecha.isBefore(endOfWeek.add(const Duration(days: 1)));
@@ -171,30 +160,21 @@ class _AppointmentsList extends StatelessWidget {
           );
         }
 
-        if (!snapshot.hasData) {
-          return _emptyState();
-        }
+        if (!snapshot.hasData) return _emptyState();
 
-        // Filtrar citas según el filtro seleccionado EN MEMORIA
         final filteredAppointments = snapshot.data!.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final fecha = _extractDate(data['fecha']);
-          
           if (fecha == null) return false;
           return _isDateInRange(fecha);
         }).toList();
 
-        if (filteredAppointments.isEmpty) {
-          return _emptyState();
-        }
+        if (filteredAppointments.isEmpty) return _emptyState();
 
-        // Ordenar por hora
         filteredAppointments.sort((a, b) {
           final dataA = a.data() as Map<String, dynamic>;
           final dataB = b.data() as Map<String, dynamic>;
-          final horaA = dataA['hora'] ?? '';
-          final horaB = dataB['hora'] ?? '';
-          return horaA.compareTo(horaB);
+          return (dataA['hora'] ?? '').compareTo(dataB['hora'] ?? '');
         });
 
         return ListView.builder(
@@ -203,7 +183,7 @@ class _AppointmentsList extends StatelessWidget {
           itemBuilder: (context, index) {
             final doc = filteredAppointments[index];
             final data = doc.data() as Map<String, dynamic>;
-            
+
             return _AppointmentCard(
               appointmentId: doc.id,
               mascotaId: data['mascotaId'] ?? '',
@@ -227,28 +207,14 @@ class _AppointmentsList extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.calendar_today_outlined,
-            size: 80,
-            color: Colors.grey.shade300,
-          ),
+          Icon(Icons.calendar_today_outlined, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
             'No hay citas programadas',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 18, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          Text(
-            'para $filter',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade400,
-            ),
-          ),
+          Text('para $filter', style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
         ],
       ),
     );
@@ -282,45 +248,30 @@ class _AppointmentCard extends StatelessWidget {
 
   Color _getStatusColor() {
     switch (estado.toLowerCase()) {
-      case 'confirmada':
-        return const Color(0xFF4CAF50);
-      case 'pendiente':
-        return const Color(0xFFFFA726);
-      case 'atendida':
-        return const Color(0xFF2196F3);
-      default:
-        return Colors.grey;
+      case 'confirmada': return const Color(0xFF4CAF50);
+      case 'pendiente': return const Color(0xFFFFA726);
+      case 'atendida': return const Color(0xFF2196F3);
+      default: return Colors.grey;
     }
   }
 
   String _getStatusText() {
     switch (estado.toLowerCase()) {
-      case 'confirmada':
-        return 'Confirmada';
-      case 'pendiente':
-        return 'Pendiente';
-      case 'atendida':
-        return 'Atendida';
-      default:
-        return 'Desconocido';
+      case 'confirmada': return 'Confirmada';
+      case 'pendiente': return 'Pendiente';
+      case 'atendida': return 'Atendida';
+      default: return 'Desconocido';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('appointments')
-          .doc(appointmentId)
-          .get(),
+      future: FirebaseFirestore.instance.collection('appointments').doc(appointmentId).get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox();
-        }
+        if (!snapshot.hasData) return const SizedBox();
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
-
-        // 🔥 AQUÍ TOMAMOS EL SERVICIO REAL
         final servicioId = data['servicioId'] ?? "";
         final precioServicio = data['precioServicio'] ?? 0;
 
@@ -334,7 +285,7 @@ class _AppointmentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ENCABEZADO
+                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -346,68 +297,33 @@ class _AppointmentCard extends StatelessWidget {
                             color: const Color(0xFF388E3C).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
-                            Icons.pets,
-                            color: Color(0xFF388E3C),
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.pets, color: Color(0xFF388E3C), size: 20),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              mascotaNombre,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              clienteNombre,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black54,
-                              ),
-                            ),
+                            Text(mascotaNombre, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(clienteNombre, style: const TextStyle(fontSize: 13, color: Colors.black54)),
                           ],
                         ),
                       ],
                     ),
-                    Text(
-                      hora,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    Text(hora, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
 
                 const SizedBox(height: 12),
-
-                // TIPO SERVICIO
-                Text(
-                  tipoServicio,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
-                ),
+                Text(tipoServicio, style: const TextStyle(fontSize: 14, color: Colors.black54)),
                 const SizedBox(height: 12),
 
-                // ESTADO + PAGADO
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        // Estado
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: _getStatusColor().withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -415,22 +331,16 @@ class _AppointmentCard extends StatelessWidget {
                           child: Text(
                             _getStatusText(),
                             style: TextStyle(
-                              color: _getStatusColor(),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
+                                color: _getStatusColor(),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12),
                           ),
                         ),
                         const SizedBox(width: 10),
-
-                        // Pagado o no
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: pagado
-                                ? Colors.green.withOpacity(0.15)
-                                : Colors.red.withOpacity(0.15),
+                            color: pagado ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -444,69 +354,66 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    // BOTÓN PRINCIPAL
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (!pagado) {
-                          // 🔥 AHORA SÍ CITA COMPLETA CORRECTA
-                          final cita = CitaModel(
-                            id: appointmentId,
-                            mascotaId: mascotaId,
-                            duenoId: duenoId,
-                            veterinariaId: veterinariaId,
-                            veterinarioId: '',
-                            servicioId: servicioId,
-                            precioServicio: precioServicio,
-                            fecha: DateTime.now(),
-                            hora: hora,
-                            direccion: '',
-                            latitud: 0.0,
-                            longitud: 0.0,
-                            estado: 'pendiente',
-                            pagado: false,
-                            observaciones: '',
-                          );
-
-                          Get.to(() => FacturaScreen(cita: cita));
-                          return;
-                        }
-
-                        // SI YA ESTÁ PAGADA → IR A ANAMNESIS
-                        final vetDoc = await FirebaseFirestore.instance
-                            .collection('veterinarians')
-                            .doc(FirebaseAuth.instance.currentUser?.uid)
-                            .get();
-
-                        final veterinaryId =
-                            vetDoc.data()?['veterinaryId'] ?? veterinariaId;
-
-                        Get.to(() => VetAnamnesisScreen(
-                              appointmentId: appointmentId,
+                    if (estado.toLowerCase() != 'atendida')
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (!pagado) {
+                            final cita = CitaModel(
+                              id: appointmentId,
                               mascotaId: mascotaId,
-                              mascotaNombre: mascotaNombre,
                               duenoId: duenoId,
-                              veterinariaId: veterinaryId,
-                            ));
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            pagado ? const Color(0xFF388E3C) : Colors.orange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                              veterinariaId: veterinariaId,
+                              veterinarioId: '',
+                              servicioId: servicioId,
+                              precioServicio: precioServicio,
+                              fecha: DateTime.now(),
+                              hora: hora,
+                              direccion: '',
+                              latitud: 0.0,
+                              longitud: 0.0,
+                              estado: 'pendiente',
+                              pagado: false,
+                              observaciones: '',
+                            );
+
+                            Get.to(() => FacturaScreen(cita: cita));
+                            return;
+                          }
+
+                          final vetDoc = await FirebaseFirestore.instance
+                              .collection('veterinarians')
+                              .doc(FirebaseAuth.instance.currentUser?.uid)
+                              .get();
+
+                          final veterinaryId =
+                              vetDoc.data()?['veterinaryId'] ?? veterinariaId;
+
+                          Get.to(() => VetAnamnesisScreen(
+                                appointmentId: appointmentId,
+                                mascotaId: mascotaId,
+                                mascotaNombre: mascotaNombre,
+                                duenoId: duenoId,
+                                veterinariaId: veterinaryId,
+                              ));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              pagado ? const Color(0xFF388E3C) : Colors.orange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                      ),
-                      child: Text(
-                        pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                        child: Text(
+                          pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    )
+                      )
                   ],
                 ),
               ],

@@ -1,4 +1,3 @@
-// ui/customer/dialogs/appointment_dialog.dart
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -44,7 +43,6 @@ class _DetailsContent extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Barra superior
           Container(
             width: 40,
             height: 5,
@@ -134,10 +132,6 @@ class _DetailsContent extends StatelessWidget {
       ],
     );
   }
-
-  // ---------------------------------------------------------------
-  // BOTONES
-  // ---------------------------------------------------------------
   Widget _whiteButton({required String text, required VoidCallback onPressed}) {
     return OutlinedButton(
       onPressed: onPressed,
@@ -176,10 +170,6 @@ class _DetailsContent extends StatelessWidget {
       child: const Text("Eliminar"),
     );
   }
-
-  // ---------------------------------------------------------------
-  // CONFIRMAR ELIMINAR
-  // ---------------------------------------------------------------
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
@@ -207,10 +197,6 @@ class _DetailsContent extends StatelessWidget {
       ),
     );
   }
-
-  // ---------------------------------------------------------------
-  // FORMULARIO DE EDICIÓN (NUEVO DISEÑO)
-  // ---------------------------------------------------------------
   void _showEditForm(BuildContext context) {
     DateTime fecha = cita.fecha;
     TimeOfDay hora = TimeOfDay.fromDateTime(cita.fecha);
@@ -324,9 +310,6 @@ class _DetailsContent extends StatelessWidget {
       },
     );
   }
-
-  // ------------------------ WIDGETS REUTILIZABLES ------------------------
-
   Widget _readonlyBox(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

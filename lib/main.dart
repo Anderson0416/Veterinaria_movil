@@ -6,6 +6,7 @@ import 'package:veterinaria_movil/controllers/appointment_controllers.dart';
 import 'package:veterinaria_movil/controllers/breed_controller.dart';
 import 'package:veterinaria_movil/controllers/factura_controllers.dart';
 import 'package:veterinaria_movil/controllers/pet_controller.dart';
+import 'package:veterinaria_movil/controllers/service_controller.dart';
 import 'package:veterinaria_movil/controllers/veterinarian_controller.dart';
 import 'package:veterinaria_movil/controllers/add_user_controllers.dart';
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
@@ -29,6 +30,8 @@ Future<void> main() async {
   Get.put(BreedController());
   Get.put(AppointmentController());
   Get.put(FacturaController());
+  Get.put(ServiceController());
+
   runApp(const MyApp());
 }
 
