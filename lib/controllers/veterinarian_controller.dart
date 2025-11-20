@@ -7,7 +7,6 @@ class VeterinarianController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🟢 Obtener veterinarios SOLO de la veterinaria logueada
   Stream<List<VeterinarianModel>> getVeterinariansStream() {
     final currentUser = _auth.currentUser;
     if (currentUser == null) {
@@ -25,7 +24,7 @@ class VeterinarianController extends GetxController {
     });
   }
 
-  // 🟢 Agregar veterinario
+  // Agregar veterinario
   Future<void> addVeterinarian(VeterinarianModel veterinarian) async {
     try {
       if (veterinarian.id != null && veterinarian.id!.isNotEmpty) {
@@ -39,7 +38,7 @@ class VeterinarianController extends GetxController {
     }
   }
 
-  // 🟡 Actualizar veterinario
+  // Actualizar veterinario
   Future<void> updateVeterinarian(
       String id, VeterinarianModel veterinarian) async {
     try {
@@ -50,7 +49,7 @@ class VeterinarianController extends GetxController {
     }
   }
 
-  // 🔴 Eliminar veterinario
+  // Eliminar veterinario
   Future<void> deleteVeterinarian(String id) async {
     try {
       await _db.collection('veterinarians').doc(id).delete();
@@ -60,7 +59,7 @@ class VeterinarianController extends GetxController {
     }
   }
 
-  // 🔍 Obtener veterinario por ID
+  // Obtener veterinario por ID
   Future<VeterinarianModel?> getVeterinarianById(String id) async {
     try {
       final doc = await _db.collection('veterinarians').doc(id).get();

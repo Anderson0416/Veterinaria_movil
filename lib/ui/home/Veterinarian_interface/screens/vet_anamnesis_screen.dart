@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:veterinaria_movil/controllers/clinical_history_controller.dart';
 import 'package:veterinaria_movil/moldes/clinical_history_model.dart';
 import 'package:veterinaria_movil/moldes/pet_model.dart';
-
 import 'package:intl/intl.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/pet_history_screen.dart';
+import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_appointments_screen.dart'; // <<--- IMPORTANTE
 
 class VetAnamnesisScreen extends StatefulWidget {
   final String appointmentId;
@@ -33,8 +33,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
   final _formKey = GlobalKey<FormState>();
   final clinicalHistoryController = ClinicalHistoryController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // Controladores de texto
   final pesoCtrl = TextEditingController();
   final temperaturaCtrl = TextEditingController();
   final frecuenciaCtrl = TextEditingController();
@@ -87,7 +85,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
       });
     }
   }
-
   Future<void> _guardarAnamnesis() async {
     if (!_formKey.currentState!.validate()) {
       Get.snackbar('Error', 'Por favor completa todos los campos obligatorios');
@@ -115,15 +112,21 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
 
     try {
       await clinicalHistoryController.createClinicalHistory(history);
-      
-      // Actualizar estado de la cita a "atendida"
+
       await FirebaseFirestore.instance
           .collection('appointments')
           .doc(widget.appointmentId)
           .update({'estado': 'atendida'});
+      Get.snackbar(
+        'Éxito',
+        'Anamnesis guardada correctamente',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
 
-      Get.back();
-      Get.back(); // Volver a la lista de citas
+      Get.offAll(() => const VetAppointmentsScreen());
+
     } catch (e) {
       Get.snackbar('Error', 'No se pudo guardar la anamnesis: $e');
     }
@@ -163,7 +166,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Botón Ver Historial
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -188,8 +190,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Datos del Paciente
               _SectionCard(
                 title: 'Datos del Paciente',
                 icon: Icons.favorite,
@@ -240,9 +240,9 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
 
-              // Motivo de Consulta
               _SectionCard(
                 title: 'Motivo de Consulta',
                 children: [
@@ -250,13 +250,14 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                     label: 'Descripción del motivo de la consulta...',
                     controller: motivoCtrl,
                     maxLines: 3,
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
 
-              // Examen Físico
               _SectionCard(
                 title: 'Examen Físico',
                 children: [
@@ -264,20 +265,21 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                     label: 'Estado General',
                     controller: estadoGeneralCtrl,
                     hint: 'Ej: Excelente',
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   _InputField(
                     label: 'Observaciones del Examen',
                     controller: observacionesCtrl,
-                    hint: 'Observaciones detalladas del examen físico...',
+                    hint: 'Observaciones detalladas...',
                     maxLines: 3,
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
 
-              // Diagnóstico y Tratamiento
               _SectionCard(
                 title: 'Diagnóstico y Tratamiento',
                 children: [
@@ -286,21 +288,23 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                     controller: diagnosticoCtrl,
                     hint: 'Diagnóstico presuntivo...',
                     maxLines: 3,
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   _InputField(
                     label: 'Tratamiento',
                     controller: tratamientoCtrl,
-                    hint: 'Plan de tratamiento y medicaciones...',
+                    hint: 'Plan de tratamiento...',
                     maxLines: 3,
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
 
-              // Próxima Cita
               _SectionCard(
                 title: 'Próxima Cita',
                 children: [
@@ -317,9 +321,9 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 24),
 
-              // Botones
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -336,7 +340,9 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 10),
+
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -361,8 +367,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
     );
   }
 }
-
-// Widget de Sección
 class _SectionCard extends StatelessWidget {
   final String title;
   final IconData? icon;
@@ -410,7 +414,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-// Campo de información (solo lectura)
 class _InfoField extends StatelessWidget {
   final String label;
   final String value;
@@ -447,7 +450,6 @@ class _InfoField extends StatelessWidget {
   }
 }
 
-// Campo de entrada
 class _InputField extends StatelessWidget {
   final String label;
   final TextEditingController controller;

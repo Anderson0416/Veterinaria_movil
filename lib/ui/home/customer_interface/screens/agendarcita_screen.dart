@@ -1,4 +1,3 @@
-  // lib/ui/home/customer/screens/agendar_cita_screen.dart
   import 'package:flutter/material.dart';
   import 'package:get/get.dart';
   import 'package:cloud_firestore/cloud_firestore.dart';
@@ -163,8 +162,6 @@
       );
 
       final userId = FirebaseAuth.instance.currentUser!.uid;
-
-      // ✅ OBTENER NOMBRE DEL CLIENTE
       String clienteNombre = 'Cliente';
       try {
         final userDoc = await FirebaseFirestore.instance

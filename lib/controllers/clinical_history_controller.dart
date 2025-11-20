@@ -9,10 +9,8 @@ class ClinicalHistoryController extends GetxController {
   Future<String> createClinicalHistory(ClinicalHistoryModel history) async {
     try {
       final ref = await _db.collection('clinical_history').add(history.toJson());
-      Get.snackbar('Éxito', 'Anamnesis guardada correctamente');
       return ref.id;
     } catch (e) {
-      Get.snackbar('Error', 'No se pudo guardar la anamnesis: $e');
       rethrow;
     }
   }

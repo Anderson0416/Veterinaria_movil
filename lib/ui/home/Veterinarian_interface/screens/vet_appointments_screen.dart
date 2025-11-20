@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart'; 
 import 'package:veterinaria_movil/moldes/appointment_model.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/factura_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_anamnesis_screen.dart';
@@ -195,6 +196,9 @@ class _AppointmentsList extends StatelessWidget {
               duenoId: data['duenoId'] ?? '',
               veterinariaId: data['veterinariaId'] ?? '',
               pagado: data['pagado'] ?? false,
+              direccion: data['direccion'] ?? '',
+              latitud: (data['latitud'] as num?)?.toDouble() ?? 0.0,
+              longitud: (data['longitud'] as num?)?.toDouble() ?? 0.0,
             );
           },
         );
@@ -232,6 +236,9 @@ class _AppointmentCard extends StatelessWidget {
   final String duenoId;
   final String veterinariaId;
   final bool pagado;
+  final String direccion;
+  final double latitud;
+  final double longitud;
 
   const _AppointmentCard({
     required this.appointmentId,
@@ -244,6 +251,9 @@ class _AppointmentCard extends StatelessWidget {
     required this.duenoId,
     required this.veterinariaId,
     required this.pagado,
+    required this.direccion,
+    required this.latitud,
+    required this.longitud,
   });
 
   Color _getStatusColor() {
@@ -264,8 +274,22 @@ class _AppointmentCard extends StatelessWidget {
     }
   }
 
+  void abrirMapa() async {
+    final String googleMapsUrl =
+        "https://www.google.com/maps/search/?api=1&query=$latitud,$longitud";
+
+    final Uri uri = Uri.parse(googleMapsUrl);
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw "No se pudo abrir Google Maps";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool esDomicilio =
+        direccion.isNotEmpty && latitud != 0.0 && longitud != 0.0;
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('appointments').doc(appointmentId).get(),
       builder: (context, snapshot) {
@@ -285,7 +309,6 @@ class _AppointmentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -315,8 +338,33 @@ class _AppointmentCard extends StatelessWidget {
 
                 const SizedBox(height: 12),
                 Text(tipoServicio, style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                const SizedBox(height: 12),
 
+                const SizedBox(height: 12),
+                Text(
+                  esDomicilio
+                      ? "Servicio a domicilio"
+                      : "Servicio presencial",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: esDomicilio ? Colors.blue : Colors.green,
+                  ),
+                ),
+                if (esDomicilio)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: ElevatedButton.icon(
+                      onPressed: abrirMapa,
+                      icon: const Icon(Icons.location_on),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF388E3C),
+                        foregroundColor: Colors.white,
+                      ),
+                      label: const Text("Ver ubicación en Google Maps"),
+                    ),
+                  ),
+
+                const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -354,6 +402,7 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                       ],
                     ),
+
                     if (estado.toLowerCase() != 'atendida')
                       ElevatedButton(
                         onPressed: () async {
@@ -368,9 +417,9 @@ class _AppointmentCard extends StatelessWidget {
                               precioServicio: precioServicio,
                               fecha: DateTime.now(),
                               hora: hora,
-                              direccion: '',
-                              latitud: 0.0,
-                              longitud: 0.0,
+                              direccion: direccion,
+                              latitud: latitud,
+                              longitud: longitud,
                               estado: 'pendiente',
                               pagado: false,
                               observaciones: '',
@@ -380,22 +429,13 @@ class _AppointmentCard extends StatelessWidget {
                             return;
                           }
 
-                          final vetDoc = await FirebaseFirestore.instance
-                              .collection('veterinarians')
-                              .doc(FirebaseAuth.instance.currentUser?.uid)
-                              .get();
+                          final vetDoc = await FirebaseFirestore.instance.collection('veterinarians')
+                              .doc(FirebaseAuth.instance.currentUser?.uid).get();
 
-                          final veterinaryId =
-                              vetDoc.data()?['veterinaryId'] ?? veterinariaId;
+                          final veterinaryId =vetDoc.data()?['veterinaryId'] ?? veterinariaId;
 
-                          Get.to(() => VetAnamnesisScreen(
-                                appointmentId: appointmentId,
-                                mascotaId: mascotaId,
-                                mascotaNombre: mascotaNombre,
-                                duenoId: duenoId,
-                                veterinariaId: veterinaryId,
-                              ));
-                        },
+                          Get.to(() => VetAnamnesisScreen(appointmentId: appointmentId,mascotaId: mascotaId,
+                                mascotaNombre: mascotaNombre,duenoId: duenoId,veterinariaId: veterinaryId,));},
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               pagado ? const Color(0xFF388E3C) : Colors.orange,
@@ -406,8 +446,7 @@ class _AppointmentCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
                         ),
-                        child: Text(
-                          pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
+                        child: Text(pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
