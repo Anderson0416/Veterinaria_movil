@@ -24,7 +24,6 @@ class _VetClinicalHistoryScreenState extends State<VetClinicalHistoryScreen> {
 
   // Cache para evitar consultas repetidas
   final Map<String, Map<String, dynamic>> _customerCache = {};
-  final Map<String, Map<String, dynamic>> _vetCache = {};
 
   @override
   void initState() {
@@ -54,27 +53,6 @@ class _VetClinicalHistoryScreenState extends State<VetClinicalHistoryScreen> {
         setState(() => isLoading = false);
       }
     }
-  }
-
-  Future<Map<String, dynamic>?> _getCachedCustomer(String duenoId) async {
-    if (_customerCache.containsKey(duenoId)) {
-      return _customerCache[duenoId];
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('customers')
-          .doc(duenoId)
-          .get();
-      
-      if (doc.exists) {
-        _customerCache[duenoId] = doc.data()!;
-        return doc.data();
-      }
-    } catch (e) {
-      print('Error obteniendo cliente: $e');
-    }
-    return null;
   }
 
   @override

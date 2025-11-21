@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:veterinaria_movil/ui/home/customer_interface/widgets/pet_history_card.dart';
 import 'package:intl/intl.dart';
 
 class HistorialScreen extends StatefulWidget {

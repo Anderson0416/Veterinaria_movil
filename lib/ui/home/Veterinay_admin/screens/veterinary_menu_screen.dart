@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/admin_facturas_preview_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/reports_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/service_management_screen.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/screens/veterinary_data_screen.dart';
@@ -112,7 +113,7 @@ class VeterinaryMenuScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // 👇 Sección de acciones principales
+            //  Sección de acciones principales
             const Text(
               "Gestión Administrativa",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -144,10 +145,16 @@ class VeterinaryMenuScreen extends StatelessWidget {
               subtitle: "Agrega, edita o elimina servicios ofrecidos",
               onTap: () => Get.to(() => ServiceManagementScreen()),
             ),
-
+            
+            AdminActionCard(
+              icon: Icons.receipt_long,
+              title: "Gestión de facturas",
+              subtitle: "revisa las facturas emitidas",
+              onTap: () => Get.to(() => AdminFacturasPreviewScreen()),
+            ),
             const SizedBox(height: 20),
 
-            // 👇 Actividad reciente
+            //  Actividad reciente
             const Text(
               "Actividad Reciente",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

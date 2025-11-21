@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:veterinaria_movil/moldes/appointment_model.dart';
-import 'package:veterinaria_movil/moldes/factura_model.dart';
 
 class AppointmentController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;

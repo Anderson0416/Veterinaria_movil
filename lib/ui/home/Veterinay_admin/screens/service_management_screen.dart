@@ -69,7 +69,7 @@ class ServiceManagementScreen extends StatelessWidget {
 
                         try {
                           if (isEditing) {
-                            await serviceController.updateService(servicioExistente!.id!, service);
+                            await serviceController.updateService(servicioExistente.id!, service);
                             Get.snackbar("Actualizado", "El servicio se actualizó correctamente ✅");
                           } else {
                             await serviceController.addService(service);

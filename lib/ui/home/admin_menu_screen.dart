@@ -105,7 +105,7 @@ class AdminMenuScreen extends StatelessWidget {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          vet.nombre ?? 'Sin nombre',
+                                          vet.nombre,
                                           style: const TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
@@ -120,7 +120,7 @@ class AdminMenuScreen extends StatelessWidget {
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
-                                                vet.direccion ?? 'Sin dirección',
+                                                vet.direccion,
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   color: Colors.black87,
@@ -136,7 +136,7 @@ class AdminMenuScreen extends StatelessWidget {
                                                 color: Colors.grey, size: 18),
                                             const SizedBox(width: 4),
                                             Text(
-                                              vet.telefono ?? 'Sin teléfono',
+                                              vet.telefono,
                                               style: const TextStyle(fontSize: 14),
                                             ),
                                           ],
@@ -218,7 +218,7 @@ class AdminMenuScreen extends StatelessWidget {
                                         await veterinaryController.updateVeterinary(
                                           vet.id!,
                                           vet.copyWith(
-                                            activo: !(vet.activo ?? false),
+                                            activo: !vet.activo,
                                           ),
                                         );
                                         Get.snackbar(
