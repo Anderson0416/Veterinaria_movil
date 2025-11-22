@@ -8,6 +8,7 @@ import 'package:veterinaria_movil/controllers/customer_controller.dart';
 //widgets
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_action_buttons.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_appointments_card.dart';
+import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_facturas_recientes_card.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_header.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_pets_card.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_profile_dialog.dart';
@@ -90,6 +91,8 @@ class _CustomerMenuScreenState extends State<CustomerMenuScreen> {
               const CustomerAppointmentsCard(),
               const SizedBox(height: 20),
               const CustomerPetsCard(),
+              const SizedBox(height: 20),
+              CustomerRecentInvoicesCard(),
             ],
           ),
         ),

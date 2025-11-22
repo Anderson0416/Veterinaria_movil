@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/screens/agendarcita_screen.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/screens/historial_screen.dart';
-import 'package:veterinaria_movil/ui/home/customer_interface/screens/mis_facturas_preview_screen.dart';
+import 'package:veterinaria_movil/ui/home/customer_interface/screens/mis_facturas_screen.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/screens/mis_mascotas_screen.dart';
 
 class CustomerActionButtons extends StatelessWidget {
@@ -36,7 +36,7 @@ class CustomerActionButtons extends StatelessWidget {
         _buildAction(
           Icons.receipt_long,
           "Mis Facturas",
-          () => Get.to(() => MisFacturasPreviewScreen()),
+          () => Get.to(() => const MisFacturasScreen()),
         ),
       ],
     );
