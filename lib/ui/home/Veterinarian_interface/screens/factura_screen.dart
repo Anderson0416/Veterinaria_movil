@@ -56,8 +56,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
 
     generando = true;
     setState(() {});
-
-    /// Verificar si ya existe factura
     final facturaExistente =
         await facturaController.getFacturaPorCita(widget.cita.id!);
 
@@ -67,11 +65,7 @@ class _FacturaScreenState extends State<FacturaScreen> {
       setState(() {});
       return;
     }
-
-    /// Marcar cita como pagada
     await appointmentController.marcarComoPagada(widget.cita);
-
-    /// Crear la factura
     final factura = FacturaModel(
       citaId: widget.cita.id!,
       duenoId: widget.cita.duenoId,
@@ -94,8 +88,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
     }
 
     Get.snackbar("Pago realizado", "La factura fue registrada exitosamente.", backgroundColor: green, colorText: Colors.white);
-
-    /// Regresar
     Future.delayed(const Duration(milliseconds: 600), () {
       Get.offAllNamed('/vetAppointments');
     });
@@ -125,7 +117,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // ENCABEZADO
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -184,8 +175,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
                   ),
 
                   const SizedBox(height: 24),
-
-                  // CARD: INFORMACIÓN DEL CLIENTE
                   _buildInfoCard(
                     icon: Icons.person,
                     title: "Información del Cliente",
@@ -197,8 +186,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
                   ),
 
                   const SizedBox(height: 16),
-
-                  // CARD: INFORMACIÓN DE LA CITA
                   _buildInfoCard(
                     icon: Icons.calendar_today,
                     title: "Información de la Cita",
@@ -211,8 +198,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
                   ),
 
                   const SizedBox(height: 24),
-
-                  // CARD: TOTAL A PAGAR
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -274,8 +259,6 @@ class _FacturaScreenState extends State<FacturaScreen> {
                   ),
 
                   const SizedBox(height: 32),
-
-                  // BOTONES DE ACCIÓN
                   Row(
                     children: [
                       Expanded(

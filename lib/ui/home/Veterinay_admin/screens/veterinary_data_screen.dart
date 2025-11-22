@@ -197,13 +197,9 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
 
     Get.snackbar('Guardado', 'Cambios guardados exitosamente');
   }
-
-  // 🔹🔹🔹 NUEVA FUNCIÓN CON SOLICITUD DE PERMISOS 🔹🔹🔹
   Future<void> _obtenerUbicacionActual() async {
     bool serviceEnabled;
     LocationPermission permission;
-
-    // 1️⃣ Verificar si el servicio de ubicación está habilitado
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       Get.snackbar(
@@ -217,11 +213,10 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
       return;
     }
 
-    // 2️⃣ Verificar permisos actuales
     permission = await Geolocator.checkPermission();
     
     if (permission == LocationPermission.denied) {
-      // Solicitar permisos si fueron denegados
+
       permission = await Geolocator.requestPermission();
       
       if (permission == LocationPermission.denied) {
@@ -238,7 +233,6 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
     }
     
     if (permission == LocationPermission.deniedForever) {
-      // Los permisos fueron denegados permanentemente
       Get.defaultDialog(
         title: 'Permisos requeridos',
         middleText: 'Los permisos de ubicación están permanentemente denegados. Por favor, actívalos desde la configuración de tu dispositivo.',
@@ -253,7 +247,6 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
       return;
     }
 
-    // 3️⃣ Si llegamos aquí, tenemos permisos - obtener ubicación
     try {
       Get.snackbar(
         'Obteniendo ubicación',

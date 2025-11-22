@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:veterinaria_movil/controllers/factura_controllers.dart';
+import 'package:veterinaria_movil/moldes/factura_model.dart';
 
 class FacturaDetailSheet {
   static void show({
@@ -7,6 +10,7 @@ class FacturaDetailSheet {
     required String fecha,
     required String servicio,
     required double total,
+    required FacturaModel factura,   
   }) {
     showModalBottomSheet(
       context: context,
@@ -25,7 +29,6 @@ class FacturaDetailSheet {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Encabezado
                 Center(
                   child: Container(
                     width: 45,
@@ -58,7 +61,11 @@ class FacturaDetailSheet {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final facturaController = Get.find<FacturaController>();
+
+                      await facturaController.crear_pdf(factura);
+                    },
                     icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
                     label: const Text("Descargar PDF"),
                     style: ElevatedButton.styleFrom(

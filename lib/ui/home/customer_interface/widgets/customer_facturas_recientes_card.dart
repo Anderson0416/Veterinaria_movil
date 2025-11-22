@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:veterinaria_movil/controllers/factura_controllers.dart';
 
 import '../../../../moldes/factura_model.dart';
 import '../screens/mis_facturas_screen.dart';
@@ -215,8 +216,11 @@ class CustomerRecentInvoicesCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Get.snackbar("Descarga", "Generando PDF...", backgroundColor: green, colorText: Colors.white);
+                onPressed: () async {
+                  Get.back();
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  final facturaController = Get.find<FacturaController>();
+                  await facturaController.crear_pdf(factura);
                 },
                 icon: const Icon(Icons.download),
                 label: const Text("Descargar PDF"),

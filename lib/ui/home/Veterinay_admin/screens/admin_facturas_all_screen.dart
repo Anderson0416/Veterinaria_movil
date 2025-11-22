@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:veterinaria_movil/moldes/factura_model.dart';
 import '../widgets/admin_factura_card.dart';
 
 class AdminFacturasAllScreen extends StatefulWidget {
@@ -11,90 +14,131 @@ class AdminFacturasAllScreen extends StatefulWidget {
 
 class _AdminFacturasAllScreenState extends State<AdminFacturasAllScreen> {
   final Color green = const Color(0xFF388E3C);
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   String filtro = "";
+  String veterinariaId = "";
+  bool cargando = true;
 
-  final List<Map<String, dynamic>> facturas = [
-    {
-      'id': 'FAC-10001',
-      'cliente': 'Carlos Gómez',
-      'servicio': 'Vacunación',
-      'fecha': '22/01/2025',
-      'total': 65000,
-    },
-    {
-      'id': 'FAC-10002',
-      'cliente': 'Ana Torres',
-      'servicio': 'Consulta General',
-      'fecha': '20/01/2025',
-      'total': 45000,
-    },
-    {
-      'id': 'FAC-10003',
-      'cliente': 'Luis Pérez',
-      'servicio': 'Baño y Peluquería',
-      'fecha': '19/01/2025',
-      'total': 80000,
-    },
-    {
-      'id': 'FAC-10004',
-      'cliente': 'María Giraldo',
-      'servicio': 'Cirugía Menor',
-      'fecha': '18/01/2025',
-      'total': 120000,
-    },
-    {
-      'id': 'FAC-10005',
-      'cliente': 'Samuel Rojas',
-      'servicio': 'Desparasitación',
-      'fecha': '15/01/2025',
-      'total': 30000,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _obtenerFacturasVeterinaria();
+  }
+  
+  Stream<List<FacturaModel>> _obtenerFacturasVeterinaria() {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return _db
+        .collection('facturas')
+        .where('veterinariaId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+      final lista = snapshot.docs
+          .map((doc) => FacturaModel.fromJson(doc.data(), doc.id))
+          .toList();
+
+      lista.sort((a, b) => b.fechaPago.compareTo(a.fechaPago));
+
+      if (filtro.isEmpty) return lista;
+
+      return lista
+          .where((f) =>
+              f.servicioNombre.toLowerCase().contains(filtro.toLowerCase()) ||
+              f.id!.contains(filtro))
+          .toList();
+    });
+      }
+
+  /// 🔥 Stream con facturas por veterinaria
+  Stream<List<Map<String, dynamic>>> _obtenerFacturasAdmin() {
+    if (veterinariaId.isEmpty) return const Stream.empty();
+
+    return _db
+        .collection('facturas')
+        .where('veterinariaId', isEqualTo: veterinariaId)
+        .snapshots()
+        .map((snapshot) {
+      final lista = snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        DateTime fecha = data['fecha'] is Timestamp
+            ? (data['fecha'] as Timestamp).toDate()
+            : (data['fecha'] as DateTime);
+
+        return {
+          ...data,
+          "fecha": fecha,
+          "id": doc.id,
+        };
+      }).toList();
+
+      lista.sort((a, b) => b['fecha'].compareTo(a['fecha']));
+
+      if (filtro.isEmpty) return lista;
+
+      final texto = filtro.toLowerCase();
+
+      return lista.where((f) {
+        return f['duenoNombre'].toLowerCase().contains(texto) ||
+            f['servicioNombre'].toLowerCase().contains(texto) ||
+            f['id'].toLowerCase().contains(texto);
+      }).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final facturasFiltradas = facturas.where((f) {
-      final texto = filtro.toLowerCase();
-      return f['id'].toLowerCase().contains(texto) ||
-          f['cliente'].toLowerCase().contains(texto) ||
-          f['servicio'].toLowerCase().contains(texto);
-    }).toList();
-
     return Scaffold(
       backgroundColor: Colors.green.shade50,
       appBar: AppBar(
         backgroundColor: green,
-        title: const Text("Todas las Facturas"),
+        title: const Text("Facturas de la Veterinaria"),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Get.back(),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildSearchBar(),
-            const SizedBox(height: 20),
+      body: cargando
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildSearchBar(),
+                  const SizedBox(height: 20),
 
-            Expanded(
-              child: facturasFiltradas.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No se encontraron facturas',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: facturasFiltradas.length,
-                      itemBuilder: (context, index) =>
-                          AdminFacturaCard(factura: facturasFiltradas[index]),
+                  Expanded(
+                    child: StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _obtenerFacturasAdmin(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        final facturas = snapshot.data!;
+
+                        if (facturas.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No hay facturas registradas',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: facturas.length,
+                          itemBuilder: (context, index) =>
+                              AdminFacturaCard(factura: facturas[index]),
+                        );
+                      },
                     ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -108,7 +152,6 @@ class _AdminFacturasAllScreenState extends State<AdminFacturasAllScreen> {
         prefixIcon: Icon(Icons.search, color: green),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.green.shade200),
         ),
       ),
     );

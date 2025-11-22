@@ -3,9 +3,6 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:veterinaria_movil/controllers/customer_controller.dart';
-
-
-//widgets
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_action_buttons.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_appointments_card.dart';
 import 'package:veterinaria_movil/ui/home/customer_interface/widgets/customer_facturas_recientes_card.dart';
@@ -21,7 +18,7 @@ class CustomerMenuScreen extends StatefulWidget {
 }
 
 class _CustomerMenuScreenState extends State<CustomerMenuScreen> {
-  String? userName; // nombre del cliente
+  String? userName; 
   String? userId;
 
   @override

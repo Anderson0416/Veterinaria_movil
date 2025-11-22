@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:veterinaria_movil/controllers/factura_controllers.dart';
+import 'package:veterinaria_movil/moldes/factura_model.dart';
 import 'package:veterinaria_movil/ui/home/Veterinay_admin/widgets/factura_detail_sheet_admin.dart';
 
 class AdminFacturaCard extends StatelessWidget {
@@ -9,15 +12,25 @@ class AdminFacturaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final FacturaController facturaController = Get.find<FacturaController>();
+
+    // FORMATO DE FECHA
+    final DateTime fechaPago = factura['fecha'];
+    final fecha = "${fechaPago.day}/${fechaPago.month}/${fechaPago.year}";
+
+    // CÓDIGO FACTURA
+    final numero = "FAC-${factura['id'].substring(0, 5).toUpperCase()}";
+
     return GestureDetector(
       onTap: () {
         AdminFacturaDetailSheet.show(
           context: context,
-          numeroFactura: factura['id'],
-          cliente: factura['cliente'],
-          servicio: factura['servicio'],
-          fecha: factura['fecha'],
+          numeroFactura: numero,
+          cliente: factura['duenoNombre'],
+          servicio: factura['servicioNombre'],
+          fecha: fecha,
           total: factura['total'],
+          facturaMap: factura,
         );
       },
       child: Container(
@@ -30,43 +43,63 @@ class AdminFacturaCard extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
-              blurRadius: 4,
               offset: const Offset(0, 2),
-            )
+              blurRadius: 4,
+            ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Encabezado
+
+            // SUPERIOR: ID y PDF
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  factura['id'],
+                  numero,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: green,
                   ),
                 ),
-                Icon(Icons.picture_as_pdf, color: Colors.red.shade400),
+
+                IconButton(
+                  icon: Icon(Icons.picture_as_pdf, color: Colors.red.shade400),
+                  onPressed: () async {
+                    try {
+                      // Convertimos MAP a FacturaModel para usar el PDF generado
+                      final FacturaModel facturaModel = FacturaModel.fromJson(factura, factura["id"]);
+                      await facturaController.crear_pdf(facturaModel);
+                    } catch (e) {
+                      Get.snackbar(
+                        "Error",
+                        "No se pudo generar el PDF: $e",
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
+                  },
+                ),
               ],
             ),
 
             const SizedBox(height: 4),
-            Text("Cliente: ${factura['cliente']}"),
+            Text("Fecha: $fecha", style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 4),
-            Text("Servicio: ${factura['servicio']}"),
+
+            Text(
+              "Servicio: ${factura['servicioNombre']}",
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 4),
-            Text("Fecha: ${factura['fecha']}"),
-            const SizedBox(height: 6),
 
             Text(
               "Total: \$${factura['total']}",
               style: TextStyle(
-                fontSize: 16,
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
                 color: green,
               ),
             ),

@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class BreedModel {
   String? id;
   String nombre;
-  String animalTypeId; // Relación con animal_types
+  String animalTypeId; 
 
   BreedModel({
     this.id,
