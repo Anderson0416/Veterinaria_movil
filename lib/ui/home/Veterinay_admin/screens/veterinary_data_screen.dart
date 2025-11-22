@@ -143,14 +143,14 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         departamentoSeleccionado = data.departamento;
         ciudadSeleccionada = data.ciudad;
 
-        // 🔹 Separar horarios de lunes a viernes
+        // Separar horarios de lunes a viernes
         if (data.horarioLV != null && data.horarioLV!.contains('-')) {
           final partes = data.horarioLV!.split('-');
           horarioLVInicioCtrl.text = partes[0].trim();
           horarioLVFinCtrl.text = partes.length > 1 ? partes[1].trim() : '';
         }
 
-        // 🔹 Separar horarios de sábado
+        //  Separar horarios de sábado
         if (data.horarioSab != null && data.horarioSab!.contains('-')) {
           final partes = data.horarioSab!.split('-');
           horarioSabInicioCtrl.text = partes[0].trim();
@@ -396,29 +396,7 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
                 if (latitud != null && longitud != null) ...[
                   Text("🌎 Coordenadas: ($latitud, $longitud)"),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: _abrirEnGoogleMaps,
-                        icon: const Icon(Icons.map, color: Colors.white),
-                        label: const Text("Ver en Google Maps", style: TextStyle(color: Colors.white)),
-                      ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: _eliminarUbicacion,
-                        icon: const Icon(Icons.delete, color: Colors.white),
-                        label: const Text("Eliminar ubicación", style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
+                  _buildResponsiveLocationButtons(),
                 ],
               ],
             ),
@@ -563,5 +541,71 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildResponsiveLocationButtons() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final isNarrow = constraints.maxWidth < 350;
+      
+      if (isNarrow) {
+        // Vertical stack on narrow screens
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: _abrirEnGoogleMaps,
+              icon: const Icon(Icons.map, color: Colors.white),
+              label: const Text("Ver en Google Maps", style: TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: _eliminarUbicacion,
+              icon: const Icon(Icons.delete, color: Colors.white),
+              label: const Text("Eliminar ubicación", style: TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        );
+      }
+
+      // Horizontal row on wider screens
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _abrirEnGoogleMaps,
+              icon: const Icon(Icons.map, color: Colors.white),
+              label: const Text("Ver en Google Maps", style: TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _eliminarUbicacion,
+              icon: const Icon(Icons.delete, color: Colors.white),
+              label: const Text("Eliminar ubicación", style: TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }

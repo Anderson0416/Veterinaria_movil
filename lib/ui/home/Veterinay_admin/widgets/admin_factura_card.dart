@@ -93,6 +93,12 @@ class AdminFacturaCard extends StatelessWidget {
               "Servicio: ${factura['servicioNombre']}",
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
+            const SizedBox(height: 6),
+            // Mostrar cliente y su identificación si están disponibles
+            if ((factura['duenoNombre'] ?? '').toString().isNotEmpty)
+              Text("Cliente: ${factura['duenoNombre']}", style: const TextStyle(color: Colors.black87)),
+            if ((factura['duenoIdentificacion'] ?? '').toString().isNotEmpty)
+              Text("Identificación: ${factura['duenoIdentificacion']}", style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 4),
 
             Text(
