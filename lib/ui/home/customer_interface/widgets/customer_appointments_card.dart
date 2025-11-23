@@ -46,12 +46,18 @@ class _CustomerAppointmentsCardState extends State<CustomerAppointmentsCard> {
                 List<CitaModel> citas = snapshot.data ?? [];
                 final ahora = DateTime.now();
 
+                // ⛔ NO mostrar citas canceladas
+                citas = citas.where((cita) => cita.estado != "Cancelada").toList();
+
+                // Filtrar citas pasadas
                 citas = citas.where((cita) {
                   if (cita.estado == "atendida" || cita.estado == "finalizada") return false;
+
                   final partes = cita.hora.split(" ");
                   final horaMin = partes[0].split(":");
                   int hour = int.parse(horaMin[0]);
                   int minute = int.parse(horaMin[1]);
+
                   if (partes[1] == "PM" && hour != 12) hour += 12;
                   if (partes[1] == "AM" && hour == 12) hour = 0;
 
@@ -62,11 +68,13 @@ class _CustomerAppointmentsCardState extends State<CustomerAppointmentsCard> {
                     hour,
                     minute,
                   );
+
                   return citaFechaHora.isAfter(ahora);
                 }).toList();
+
                 citas.sort((a, b) {
                   final fechaA = DateTime(a.fecha.year, a.fecha.month, a.fecha.day);
-                  final fechaB = DateTime(b.fecha.year, b.fecha.month, b.fecha.year);
+                  final fechaB = DateTime(b.fecha.year, b.fecha.month, b.fecha.day);
                   return fechaA.compareTo(fechaB);
                 });
 

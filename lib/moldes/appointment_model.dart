@@ -15,7 +15,8 @@ class CitaModel {
   double longitud;
   String estado;            
   bool pagado;  
-  String observaciones;   
+  String observaciones;
+  String modalidad; 
 
   CitaModel({
     this.id,
@@ -32,7 +33,8 @@ class CitaModel {
     required this.longitud,
     required this.estado,
     required this.pagado,
-    required this.observaciones, 
+    required this.observaciones,
+    required this.modalidad,
   });
 
   Map<String, dynamic> toJson() {
@@ -43,20 +45,21 @@ class CitaModel {
       'veterinarioId': veterinarioId,
       'servicioId': servicioId,
       'precioServicio': precioServicio,
-      'fecha': Timestamp.fromDate(fecha), // ✅ CAMBIO AQUÍ
+      'fecha': Timestamp.fromDate(fecha),
       'hora': hora,
       'direccion': direccion,
       'latitud': latitud,
       'longitud': longitud,
       'estado': estado,
       'pagado': pagado,
-      'observaciones': observaciones, 
+      'observaciones': observaciones,
+      'modalidad': modalidad,
     };
   }
 
   factory CitaModel.fromJson(Map<String, dynamic> json, String id) {
-    // ✅ Manejar tanto Timestamp como String
     DateTime parsedFecha;
+
     if (json['fecha'] is Timestamp) {
       parsedFecha = (json['fecha'] as Timestamp).toDate();
     } else if (json['fecha'] is String) {
@@ -80,7 +83,8 @@ class CitaModel {
       longitud: (json['longitud'] as num?)?.toDouble() ?? 0.0,
       estado: json['estado'] ?? 'pendiente',
       pagado: json['pagado'] ?? false,
-      observaciones: json['observaciones'] ?? '', 
+      observaciones: json['observaciones'] ?? '',
+      modalidad: json['modalidad'] ?? "presencial",
     );
   }
 }

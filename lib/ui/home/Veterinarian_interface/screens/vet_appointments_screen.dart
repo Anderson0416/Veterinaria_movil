@@ -261,6 +261,7 @@ class _AppointmentCard extends StatelessWidget {
       case 'confirmada': return const Color(0xFF4CAF50);
       case 'pendiente': return const Color(0xFFFFA726);
       case 'atendida': return const Color(0xFF2196F3);
+      case 'cancelada': return Colors.red;
       default: return Colors.grey;
     }
   }
@@ -270,6 +271,7 @@ class _AppointmentCard extends StatelessWidget {
       case 'confirmada': return 'Confirmada';
       case 'pendiente': return 'Pendiente';
       case 'atendida': return 'Atendida';
+      case 'cancelada': return 'Cancelada';
       default: return 'Desconocido';
     }
   }
@@ -287,17 +289,22 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool esDomicilio =
-        direccion.isNotEmpty && latitud != 0.0 && longitud != 0.0;
-
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('appointments').doc(appointmentId).get(),
+      future: FirebaseFirestore.instance
+          .collection('appointments')
+          .doc(appointmentId)
+          .get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
+
         final servicioId = data['servicioId'] ?? "";
         final precioServicio = data['precioServicio'] ?? 0;
+        final String modalidad = data['modalidad'] ?? "Presencial";
+        final bool esDomicilio = modalidad == "Domicilio";
+
+        final bool isCancelada = estado.toLowerCase() == "cancelada";
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -320,37 +327,45 @@ class _AppointmentCard extends StatelessWidget {
                             color: const Color(0xFF388E3C).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.pets, color: Color(0xFF388E3C), size: 20),
+                          child: const Icon(Icons.pets,
+                              color: Color(0xFF388E3C), size: 20),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(mascotaNombre, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text(clienteNombre, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                            Text(mascotaNombre,
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                            Text(clienteNombre,
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.black54)),
                           ],
                         ),
                       ],
                     ),
-                    Text(hora, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(hora,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
 
                 const SizedBox(height: 12),
-                Text(tipoServicio, style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                Text(tipoServicio,
+                    style:
+                        const TextStyle(fontSize: 14, color: Colors.black54)),
 
                 const SizedBox(height: 12),
                 Text(
-                  esDomicilio
-                      ? "Servicio a domicilio"
-                      : "Servicio presencial",
+                  modalidad == "Domicilio" ? "Servicio a domicilio" : "Servicio presencial",
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: esDomicilio ? Colors.blue : Colors.green,
+                    color: modalidad == "Domicilio" ? Colors.blue : Colors.green,
                   ),
                 ),
-                if (esDomicilio)
+                if (esDomicilio && !isCancelada)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: ElevatedButton.icon(
@@ -371,7 +386,8 @@ class _AppointmentCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: _getStatusColor().withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -386,9 +402,12 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: pagado ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                            color: pagado
+                                ? Colors.green.withOpacity(0.15)
+                                : Colors.red.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -402,8 +421,7 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    if (estado.toLowerCase() != 'atendida')
+                    if (!isCancelada && estado.toLowerCase() != 'atendida')
                       ElevatedButton(
                         onPressed: () async {
                           if (!pagado) {
@@ -423,22 +441,25 @@ class _AppointmentCard extends StatelessWidget {
                               estado: 'pendiente',
                               pagado: false,
                               observaciones: '',
+                              modalidad: modalidad,
                             );
 
                             Get.to(() => FacturaScreen(cita: cita));
                             return;
                           }
-
-                          final vetDoc = await FirebaseFirestore.instance.collection('veterinarians')
-                              .doc(FirebaseAuth.instance.currentUser?.uid).get();
-
-                          final veterinaryId =vetDoc.data()?['veterinaryId'] ?? veterinariaId;
-
-                          Get.to(() => VetAnamnesisScreen(appointmentId: appointmentId,mascotaId: mascotaId,
-                                mascotaNombre: mascotaNombre,duenoId: duenoId,veterinariaId: veterinaryId,));},
+                          final vetDoc =
+                              await FirebaseFirestore.instance.collection('veterinarians').doc(FirebaseAuth.instance.currentUser?.uid).get();
+                          final veterinaryId = vetDoc.data()?['veterinaryId'] ?? veterinariaId;
+                          Get.to(() => VetAnamnesisScreen(
+                                appointmentId: appointmentId,
+                                mascotaId: mascotaId,
+                                mascotaNombre: mascotaNombre,
+                                duenoId: duenoId,
+                                veterinariaId: veterinaryId,
+                              ));
+                        },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              pagado ? const Color(0xFF388E3C) : Colors.orange,
+                          backgroundColor: pagado ? const Color(0xFF388E3C) : Colors.orange,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -446,7 +467,8 @@ class _AppointmentCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
                         ),
-                        child: Text(pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
+                        child: Text(
+                          pagado ? 'Iniciar Consulta' : 'Pagar Consulta',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,

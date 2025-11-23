@@ -171,32 +171,41 @@ class _DetailsContent extends StatelessWidget {
     );
   }
   void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("¿Eliminar cita?",
-            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: const Text("Esta acción no se puede deshacer."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await controller.eliminarCita(cita.id!);
-              Navigator.pop(context);
-              Navigator.pop(context);
-              Get.snackbar("Éxito", "Cita eliminada correctamente");
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Eliminar"),
-          ),
-        ],
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        "¿Seguro que quiere eliminar la cita?",
+        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
       ),
-    );
-  }
+      content: const Text(
+        "La cita se eliminará por completo.",
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("No"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            await controller.actualizarEstado(cita.id!, "Cancelada");
+
+            Navigator.pop(context); 
+            Navigator.pop(context); 
+
+            Get.snackbar("Cita cancelada",
+                "El estado de la cita fue eliminada");
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text("Sí, cancelar"),
+        ),
+      ],
+    ),
+  );
+}
+
+
   void _showEditForm(BuildContext context) {
     DateTime fecha = cita.fecha;
     TimeOfDay hora = TimeOfDay.fromDateTime(cita.fecha);
