@@ -7,7 +7,6 @@ import 'package:veterinaria_movil/moldes/clinical_history_model.dart';
 import 'package:veterinaria_movil/moldes/pet_model.dart';
 import 'package:intl/intl.dart';
 import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/pet_history_screen.dart';
-import 'package:veterinaria_movil/ui/home/Veterinarian_interface/screens/vet_appointments_screen.dart'; // <<--- IMPORTANTE
 
 class VetAnamnesisScreen extends StatefulWidget {
   final String appointmentId;
@@ -41,9 +40,7 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
   final observacionesCtrl = TextEditingController();
   final diagnosticoCtrl = TextEditingController();
   final tratamientoCtrl = TextEditingController();
-  final proximaCitaCtrl = TextEditingController();
 
-  DateTime? proximaCitaSeleccionada;
   PetModel? petData;
 
   @override
@@ -69,27 +66,38 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
     }
   }
 
-  Future<void> _pickProximaCita() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now.add(const Duration(days: 7)),
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (picked != null) {
-      setState(() {
-        proximaCitaSeleccionada = picked;
-        proximaCitaCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
-      });
-    }
-  }
-  Future<void> _guardarAnamnesis() async {
+ Future<void> _guardarAnamnesis() async {
     if (!_formKey.currentState!.validate()) {
-      Get.snackbar('Error', 'Por favor completa todos los campos obligatorios');
+      Get.snackbar(
+        'Error',
+        'Por favor completa todos los campos obligatorios',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
+
+    // Mostrar loading
+    Get.dialog(
+      const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF388E3C)),
+                SizedBox(height: 16),
+                Text('Guardando anamnesis...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
 
     final history = ClinicalHistoryModel(
       citaId: widget.appointmentId,
@@ -107,7 +115,7 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
       observacionesExamen: observacionesCtrl.text.trim(),
       diagnostico: diagnosticoCtrl.text.trim(),
       tratamiento: tratamientoCtrl.text.trim(),
-      proximaCita: proximaCitaSeleccionada,
+      proximaCita: null,
     );
 
     try {
@@ -117,18 +125,46 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
           .collection('appointments')
           .doc(widget.appointmentId)
           .update({'estado': 'atendida'});
+
+      // Cerrar loading
+      Get.back();
+      
+      // Mostrar mensaje de éxito
       Get.snackbar(
-        'Éxito',
-        'Anamnesis guardada correctamente',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
+        '✓ Anamnesis Guardada',
+        'La información clínica se guardó exitosamente',
+        backgroundColor: const Color(0xFF388E3C),
         colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+        icon: const Icon(Icons.check_circle, color: Colors.white),
       );
 
-      Get.offAll(() => const VetAppointmentsScreen());
+      // Esperar un momento para que se vea el mensaje
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      // Regresar a la pantalla anterior (dos veces)
+      Get.back();
+      Get.back();
 
     } catch (e) {
-      Get.snackbar('Error', 'No se pudo guardar la anamnesis: $e');
+      // Cerrar loading
+      Get.back();
+      
+      // Mostrar error
+      Get.snackbar(
+        'Error',
+        'No se pudo guardar la anamnesis: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+        icon: const Icon(Icons.error, color: Colors.white),
+      );
     }
   }
 
@@ -142,7 +178,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
     observacionesCtrl.dispose();
     diagnosticoCtrl.dispose();
     tratamientoCtrl.dispose();
-    proximaCitaCtrl.dispose();
     super.dispose();
   }
 
@@ -299,25 +334,6 @@ class _VetAnamnesisScreenState extends State<VetAnamnesisScreen> {
                     maxLines: 3,
                     validator: (v) =>
                         v == null || v.isEmpty ? 'Requerido' : null,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              _SectionCard(
-                title: 'Próxima Cita',
-                children: [
-                  GestureDetector(
-                    onTap: _pickProximaCita,
-                    child: AbsorbPointer(
-                      child: _InputField(
-                        label: 'Fecha (dd/mm/aaaa)',
-                        controller: proximaCitaCtrl,
-                        hint: 'dd/mm/aaaa',
-                        suffixIcon: Icons.calendar_today,
-                      ),
-                    ),
                   ),
                 ],
               ),

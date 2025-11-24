@@ -5,7 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:geolocator/geolocator.dart'; // 🔹 AGREGADO
+import 'package:geolocator/geolocator.dart';
 import '../../../../controllers/veterinary_controller.dart';
 import '../../../../moldes/veterinary_model.dart';
 
@@ -160,6 +160,7 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
     }
   }
 
+  // 🔹 MODIFICADO: Agregar Get.back() después de guardar
   Future<void> _guardarCambios() async {
     if (user == null) return;
 
@@ -181,22 +182,50 @@ class _VeterinaryDataScreenState extends State<VeterinaryDataScreen> {
       departamento: departamentoSeleccionado,
     );
 
-    await FirebaseFirestore.instance.collection('veterinarias').doc(user!.uid).update({
-      'nombre': updatedData.nombre,
-      'direccion': updatedData.direccion,
-      'telefono': updatedData.telefono,
-      'nit': updatedData.nit,
-      'correo': updatedData.correo,
-      'horarioLV': updatedData.horarioLV,
-      'horarioSab': updatedData.horarioSab,
-      'latitud': updatedData.latitud ?? FieldValue.delete(),
-      'longitud': updatedData.longitud ?? FieldValue.delete(),
-      'ciudad': updatedData.ciudad,
-      'departamento': updatedData.departamento,
-    });
+    try {
+      // Guardar en Firestore
+      await FirebaseFirestore.instance.collection('veterinarias').doc(user!.uid).update({
+        'nombre': updatedData.nombre,
+        'direccion': updatedData.direccion,
+        'telefono': updatedData.telefono,
+        'nit': updatedData.nit,
+        'correo': updatedData.correo,
+        'horarioLV': updatedData.horarioLV,
+        'horarioSab': updatedData.horarioSab,
+        'latitud': updatedData.latitud ?? FieldValue.delete(),
+        'longitud': updatedData.longitud ?? FieldValue.delete(),
+        'ciudad': updatedData.ciudad,
+        'departamento': updatedData.departamento,
+      });
 
-    Get.snackbar('Guardado', 'Cambios guardados exitosamente');
+      // Mostrar mensaje de éxito
+      Get.snackbar(
+        'Guardado', 
+        'Cambios guardados exitosamente',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 1),
+      );
+      
+      // Volver a la pantalla anterior después de 1 segundo
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          Get.back();
+        }
+      });
+      
+    } catch (e) {
+      Get.snackbar(
+        'Error', 
+        'No se pudieron guardar los cambios: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
+
   Future<void> _obtenerUbicacionActual() async {
     bool serviceEnabled;
     LocationPermission permission;

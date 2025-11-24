@@ -115,8 +115,17 @@ class _VetClinicalHistoryScreenState extends State<VetClinicalHistoryScreen> {
         controller: searchController,
         onChanged: (value) => setState(() => searchQuery = value.toLowerCase()),
         decoration: InputDecoration(
-          hintText: 'Buscar por nombre de mascota...',
+          hintText: 'Buscar por mascota, dueño, veterinario o fecha (dd/mm/yyyy)...',
           prefixIcon: const Icon(Icons.search, color: Color(0xFF388E3C)),
+          suffixIcon: searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    searchController.clear();
+                    setState(() => searchQuery = '');
+                  },
+                )
+              : null,
           filled: true,
           fillColor: Colors.grey.shade100,
           border: OutlineInputBorder(
@@ -133,120 +142,127 @@ class _VetClinicalHistoryScreenState extends State<VetClinicalHistoryScreen> {
   }
 
   Widget _buildHistoryList() {
-  return StreamBuilder<List<ClinicalHistoryModel>>(
-    stream: clinicalHistoryController.getClinicalHistoryByVeterinaryId(veterinariaId!),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF388E3C)),
-        );
-      }
-
-      if (snapshot.hasError) {
-        return Center(
-          child: Text('Error: ${snapshot.error}'),
-        );
-      }
-
-      if (!snapshot.hasData || snapshot.data!.isEmpty) {
-        return _buildEmptyState();
-      }
-
-      // Filtrar historiales
-      return FutureBuilder<List<ClinicalHistoryModel>>(
-        future: _filterHistories(snapshot.data!),
-        builder: (context, filteredSnapshot) {
-          if (filteredSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF388E3C)),
-            );
-          }
-
-          final filteredHistories = filteredSnapshot.data ?? [];
-
-          if (filteredHistories.isEmpty) {
-            return _buildNoResultsState();
-          }
-
-          return ListView.builder(
-            key: const PageStorageKey('historyList'),
-            padding: const EdgeInsets.all(16),
-            itemCount: filteredHistories.length,
-            itemBuilder: (context, index) {
-              final history = filteredHistories[index];
-              return _HistoryCard(
-                key: ValueKey(history.id),
-                history: history,
-                customerCache: _customerCache,
-                onViewComplete: () => _showCompleteHistory(history),
-              );
-            },
+    return StreamBuilder<List<ClinicalHistoryModel>>(
+      stream: clinicalHistoryController.getClinicalHistoryByVeterinaryId(veterinariaId!),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF388E3C)),
           );
-        },
-      );
-    },
-  );
-}
+        }
 
-Future<List<ClinicalHistoryModel>> _filterHistories(List<ClinicalHistoryModel> histories) async {
-  if (searchQuery.isEmpty) return histories;
-  
-  final filtered = <ClinicalHistoryModel>[];
-  
-  for (final history in histories) {
-    // Buscar por nombre de mascota
-    if (history.mascotaNombre.toLowerCase().contains(searchQuery)) {
-      filtered.add(history);
-      continue;
-    }
-    
-    // Buscar por datos del dueño
-    try {
-      final ownerDoc = await FirebaseFirestore.instance
-          .collection('customers')
-          .doc(history.duenoId)
-          .get();
-      
-      if (ownerDoc.exists) {
-        final ownerData = ownerDoc.data()!;
-        final nombre = (ownerData['nombre'] ?? '').toLowerCase();
-        final apellido = (ownerData['apellido'] ?? '').toLowerCase();
-        final cedula = (ownerData['numeroDocumento'] ?? '').toLowerCase();
-        
-        if (nombre.contains(searchQuery) || 
-            apellido.contains(searchQuery) ||
-            cedula.contains(searchQuery)) {
-          filtered.add(history);
-          continue;
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
         }
-      }
-    } catch (e) {
-      print('Error buscando dueño: $e');
-    }
-    
-    // Buscar por veterinario
-    try {
-      final vetDoc = await FirebaseFirestore.instance
-          .collection('veterinarians')
-          .doc(history.veterinarioId)
-          .get();
-      
-      if (vetDoc.exists) {
-        final vetData = vetDoc.data()!;
-        final apellido = (vetData['apellido'] ?? '').toLowerCase();
-        
-        if (apellido.contains(searchQuery)) {
-          filtered.add(history);
-          continue;
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return _buildEmptyState();
         }
-      }
-    } catch (e) {
-      print('Error buscando veterinario: $e');
-    }
+
+        // Filtrar historiales
+        return FutureBuilder<List<ClinicalHistoryModel>>(
+          future: _filterHistories(snapshot.data!),
+          builder: (context, filteredSnapshot) {
+            if (filteredSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF388E3C)),
+              );
+            }
+
+            final filteredHistories = filteredSnapshot.data ?? [];
+
+            if (filteredHistories.isEmpty) {
+              return _buildNoResultsState();
+            }
+
+            return ListView.builder(
+              key: const PageStorageKey('historyList'),
+              padding: const EdgeInsets.all(16),
+              itemCount: filteredHistories.length,
+              itemBuilder: (context, index) {
+                final history = filteredHistories[index];
+                return _HistoryCard(
+                  key: ValueKey(history.id),
+                  history: history,
+                  customerCache: _customerCache,
+                  onViewComplete: () => _showCompleteHistory(history),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
-  
-  return filtered;
-}
+
+  Future<List<ClinicalHistoryModel>> _filterHistories(List<ClinicalHistoryModel> histories) async {
+    if (searchQuery.isEmpty) return histories;
+    
+    final filtered = <ClinicalHistoryModel>[];
+    
+    for (final history in histories) {
+      // Buscar por nombre de mascota
+      if (history.mascotaNombre.toLowerCase().contains(searchQuery)) {
+        filtered.add(history);
+        continue;
+      }
+      
+      // 🔹 NUEVO: Buscar por fecha
+      final fechaFormateada = DateFormat('dd/MM/yyyy').format(history.fecha).toLowerCase();
+      if (fechaFormateada.contains(searchQuery)) {
+        filtered.add(history);
+        continue;
+      }
+      
+      // Buscar por datos del dueño
+      try {
+        final ownerDoc = await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(history.duenoId)
+            .get();
+        
+        if (ownerDoc.exists) {
+          final ownerData = ownerDoc.data()!;
+          final nombre = (ownerData['nombre'] ?? '').toLowerCase();
+          final apellido = (ownerData['apellido'] ?? '').toLowerCase();
+          final cedula = (ownerData['numeroDocumento'] ?? '').toLowerCase();
+          
+          if (nombre.contains(searchQuery) || 
+              apellido.contains(searchQuery) ||
+              cedula.contains(searchQuery)) {
+            filtered.add(history);
+            continue;
+          }
+        }
+      } catch (e) {
+        print('Error buscando dueño: $e');
+      }
+      
+      // Buscar por veterinario
+      try {
+        final vetDoc = await FirebaseFirestore.instance
+            .collection('veterinarians')
+            .doc(history.veterinarioId)
+            .get();
+        
+        if (vetDoc.exists) {
+          final vetData = vetDoc.data()!;
+          final apellido = (vetData['apellido'] ?? '').toLowerCase();
+          
+          if (apellido.contains(searchQuery)) {
+            filtered.add(history);
+            continue;
+          }
+        }
+      } catch (e) {
+        print('Error buscando veterinario: $e');
+      }
+    }
+    
+    return filtered;
+  }
 
   Widget _buildEmptyState() {
     return Center(
@@ -287,6 +303,11 @@ Future<List<ClinicalHistoryModel>> _filterHistories(List<ClinicalHistoryModel> h
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Intenta con otro término de búsqueda',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
           ),
         ],
       ),

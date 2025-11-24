@@ -272,27 +272,6 @@ class VeterinaryMenuScreen extends StatelessWidget {
               subtitle: "Estadísticas y análisis de rendimiento",
               onTap: () => Get.to(() => const ReportsScreen()),
             ),
-
-
-            const SizedBox(height: 20),
-
-            //  Actividad reciente
-            const Text(
-              "Actividad Reciente",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-
-            const RecentActivityCard(
-              title: "Cita completada - Luna 🐶",
-              subtitle: "Atendida por Dr. Martínez",
-              date: "09/10/2025",
-            ),
-            const RecentActivityCard(
-              title: "Nuevo registro de cliente",
-              subtitle: "Usuario: Ana Torres",
-              date: "08/10/2025",
-            ),
           ],
         ),
       ),

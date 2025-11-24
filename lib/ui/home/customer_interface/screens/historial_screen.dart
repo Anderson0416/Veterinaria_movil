@@ -42,7 +42,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
               controller: searchController,
               onChanged: (value) => setState(() => searchQuery = value.toLowerCase()),
               decoration: InputDecoration(
-                hintText: 'Buscar por nombre de mascota...',
+                hintText: 'Buscar por nombre de mascota o fecha (dd/mm/yyyy)...',
                 prefixIcon: Icon(Icons.search, color: Colors.green.shade700),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
@@ -117,7 +117,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   );
                 }
 
-                // Filtrar por nombre de mascota
+                // Filtrar por nombre de mascota O fecha
                 final allDocs = snapshot.data!.docs;
                 
                 // Ordenar por fecha manualmente
@@ -135,7 +135,17 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     : allDocs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
                         final mascotaNombre = (data['mascotaNombre'] ?? '').toString().toLowerCase();
-                        return mascotaNombre.contains(searchQuery);
+                        
+                        // Obtener fecha formateada
+                        String fechaFormateada = '';
+                        if (data['fecha'] != null) {
+                          final fecha = (data['fecha'] as Timestamp).toDate();
+                          fechaFormateada = DateFormat('dd/MM/yyyy').format(fecha).toLowerCase();
+                        }
+                        
+                        // Buscar en nombre de mascota O en fecha
+                        return mascotaNombre.contains(searchQuery) || 
+                               fechaFormateada.contains(searchQuery);
                       }).toList();
 
                 if (filteredDocs.isEmpty) {
@@ -147,7 +157,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         const SizedBox(height: 16),
                         Text('No se encontraron resultados', style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
                         const SizedBox(height: 8),
-                        Text('Intenta con otro nombre', style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
+                        Text('Intenta con otro nombre o fecha', style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
                       ],
                     ),
                   );
