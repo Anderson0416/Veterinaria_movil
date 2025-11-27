@@ -183,7 +183,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
               GestureDetector(
                 onTap: () async {
                   final hoy = DateTime.now();
-                  final firstDate = DateTime(hoy.year - 25); // mascotas no suelen ser más viejas
+                  final firstDate = DateTime(hoy.year - 25); 
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: selectedFechaNacimiento ?? hoy,
