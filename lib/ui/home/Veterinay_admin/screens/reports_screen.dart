@@ -1,12 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math' as math;
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+// Clase auxiliar para dibujar un gráfico circular sencillo (pie chart)
+class _PieChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+
+  _PieChartPainter({required this.values, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final radius = math.min(size.width, size.height) / 2;
+
+    final total = values.fold<double>(0, (p, e) => p + (e.isNaN ? 0.0 : e));
+
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    double startAngle = -math.pi / 2; // comenzar desde arriba
+
+    if (total <= 0) {
+      // dibujar círculo gris cuando no hay datos
+      paint.color = Colors.grey.shade200;
+      canvas.drawCircle(center, radius, paint);
+      return;
+    }
+
+    for (int i = 0; i < values.length; i++) {
+      final val = values[i];
+      final sweep = (val / total) * (math.pi * 2);
+      paint.color = i < colors.length ? colors[i] : Colors.grey.shade400;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, true, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PieChartPainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.colors != colors;
+  }
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
@@ -35,6 +78,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: Column(
           children: [
             _buildFilterButton(),
+            const SizedBox(height: 12),
+            
+            _buildActionButtons(),
             const SizedBox(height: 24),
             
             _buildTopVeterinariansSection(),
@@ -43,11 +89,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
             _buildMonthlyActivitySection(),
             const SizedBox(height: 24),
 
+            // Nueva tarjeta: ingresos generados
+            _buildRevenueSection(),
+            const SizedBox(height: 24),
+            const SizedBox(height: 24),
+
             _buildConsultTypeSection(),
             const SizedBox(height: 24),
 
-            _buildActionButtons(),
-            const SizedBox(height: 20),
+            //  Nueva sección: Estado de citas (Pendiente / Atendida / Cancelada)
+            _buildStatusByStateSection(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -341,6 +393,184 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // -----------------------
+  // TARJETA: INGRESOS GENERADOS
+  // Muestra la suma de precioServicio para las citas de la veterinaria (filtradas por veterinariaId si hay sesión activa)
+  // Respeta el filtro por rango de fechas (startDate / endDate) si está aplicado.
+  Widget _buildRevenueSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.monetization_on, color: green, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              "Ingresos Generados",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildRevenueCard(),
+      ],
+    );
+  }
+
+  // Tarjeta principal que calcula y muestra ingresos a partir de 'precioServicio'
+  Widget _buildRevenueCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: green.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('appointments').snapshots(),
+        builder: (context, AsyncSnapshot<QuerySnapshot> snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snap.data?.docs ?? [];
+
+          // obtener id de la veterinaria (usuario actual) para filtrar ingresos únicamente de su clínica
+          final vetId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+          double totalRevenue = 0.0; // suma de precioServicio
+          int citasContadas = 0; // número de citas que se tomaron en cuenta
+
+          // determinar límites de fecha si hay filtro activo
+          DateTime? from;
+          DateTime? to;
+          if (startDate != null || endDate != null) {
+            from = startDate != null ? DateTime(startDate!.year, startDate!.month, startDate!.day) : DateTime.fromMillisecondsSinceEpoch(0);
+            to = endDate != null ? DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59) : DateTime.now().add(const Duration(days: 36500));
+          }
+
+          for (final d in docs) {
+            final data = d.data() as Map<String, dynamic>;
+
+            // parseo de fecha robusto
+            DateTime fecha;
+            final rawFecha = data['fecha'];
+            if (rawFecha is Timestamp) {
+              fecha = rawFecha.toDate();
+            } else if (rawFecha is String) {
+              fecha = DateTime.tryParse(rawFecha) ?? DateTime.now();
+            } else if (rawFecha is DateTime) {
+              fecha = rawFecha;
+            } else {
+              fecha = DateTime.now();
+            }
+
+            // aplicar filtro de fecha si existe
+            if (from != null && to != null) {
+              if (fecha.isBefore(from) || fecha.isAfter(to)) continue;
+            }
+
+            // si hay sesión, solo contar citas de esta veterinaria
+            if (vetId.isNotEmpty) {
+              final vId = (data['veterinariaId'] ?? '').toString();
+              if (vId != vetId) continue;
+            }
+
+            // leer precioServicio (asegurando conversión segura a double)
+            final precioRaw = data['precioServicio'];
+            double precio = 0.0;
+            if (precioRaw is num) {
+              precio = precioRaw.toDouble();
+            } else if (precioRaw is String) {
+              precio = double.tryParse(precioRaw.replaceAll(',', '.')) ?? 0.0;
+            }
+
+            totalRevenue += precio;
+            citasContadas++;
+          }
+
+          // format simple (2 decimales)
+          final totalText = '\$${totalRevenue.toStringAsFixed(2)}';
+          final avg = citasContadas > 0 ? (totalRevenue / citasContadas) : 0.0;
+
+          return Column(
+            children: [
+              // fila resumen: Total y número de citas
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Total generado', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        const SizedBox(height: 6),
+                        Text(totalText, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: green)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // tarjeta pequeña con conteo de citas y promedio
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: greenLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: green.withOpacity(0.15)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('$citasContadas citas', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Text('Promedio: \$${avg.toStringAsFixed(2)}', style: const TextStyle(color: Colors.black54)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // explicación y leyenda
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: greenLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: green.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Mostrando ingresos de la veterinaria${startDate != null && endDate != null ? ' desde ${_formatDate(startDate!)} hasta ${_formatDate(endDate!)}' : ''}.', style: TextStyle(color: Colors.grey.shade800)),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildMonthTile(String month, int count, double progress) {
     return Row(
       children: [
@@ -431,13 +661,60 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final docs = snap.data?.docs ?? [];
           int local = 0;
           int domicilio = 0;
+
+          
+          DateTime? from;
+          DateTime? to;
+          if (startDate != null || endDate != null) {
+            from = startDate != null ? DateTime(startDate!.year, startDate!.month, startDate!.day) : DateTime.fromMillisecondsSinceEpoch(0);
+            to = endDate != null ? DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59) : DateTime.now().add(const Duration(days: 36500));
+          }
+
           for (final d in docs) {
             final data = d.data() as Map<String, dynamic>;
-            final direccion = (data['direccion'] ?? '') as String;
-            if (direccion.trim().isEmpty) {
-              local++;
+
+            
+            DateTime fecha;
+            final rawFecha = data['fecha'];
+            if (rawFecha is Timestamp) {
+              fecha = rawFecha.toDate();
+            } else if (rawFecha is String) {
+              fecha = DateTime.tryParse(rawFecha) ?? DateTime.now();
+            } else if (rawFecha is DateTime) {
+              fecha = rawFecha;
             } else {
-              domicilio++;
+              fecha = DateTime.now();
+            }
+
+            // Respect optional date range
+            if (from != null && to != null) {
+              if (fecha.isBefore(from) || fecha.isAfter(to)) continue;
+            }
+
+            // Prefer the new 'modalidad' field (values: 'presencial' or 'domicilio')
+            final modalRaw = (data['modalidad'] ?? data['modalidadSeleccionada'] ?? '').toString().toLowerCase().trim();
+            if (modalRaw.isNotEmpty) {
+              if (modalRaw.contains('presencial') || modalRaw.contains('local')) {
+                local++;
+              } else if (modalRaw.contains('domicilio') || modalRaw.contains('home')) {
+                domicilio++;
+              } else {
+                // unknown modalidad -> still classify using direccion as fallback
+                final direccion = (data['direccion'] ?? '').toString();
+                if (direccion.trim().isEmpty) {
+                  local++;
+                } else {
+                  domicilio++;
+                }
+              }
+            } else {
+              // fallback to old behavior: if direccion is empty => local
+              final direccion = (data['direccion'] ?? '').toString();
+              if (direccion.trim().isEmpty) {
+                local++;
+              } else {
+                domicilio++;
+              }
             }
           }
 
@@ -445,12 +722,56 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final localP = total > 0 ? local / total : 0.0;
           final domP = total > 0 ? domicilio / total : 0.0;
 
+          // colores para la gráfica circular acorde a la interfaz
+          final colorLocal = green; // local usa el color principal
+          final colorDomicilio = const Color(0xFF42A5F5); // azul suave que combina con la paleta
+
           return Column(
             children: [
-              _buildConsultTile("Local", local, localP),
-              const SizedBox(height: 16),
-              _buildConsultTile("Domicilio", domicilio, domP),
-              const SizedBox(height: 20),
+              // fila principal: gráfica circular + leyenda
+              Row(
+                children: [
+                  // Gráfica circular personalizada
+                  SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: CustomPaint(
+                      painter: _PieChartPainter(
+                        values: [local.toDouble(), domicilio.toDouble()],
+                        colors: [colorLocal, colorDomicilio],
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                            const SizedBox(height: 4),
+                            const Text('Total citas', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 18),
+
+                  // Leyenda a la derecha
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLegendItem('Local', local, localP, colorLocal),
+                        const SizedBox(height: 12),
+                        _buildLegendItem('Domicilio', domicilio, domP, colorDomicilio),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // resumen y contexto (mantener caja estética)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
@@ -468,7 +789,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "Las consultas locales representan el ${(localP * 100).toStringAsFixed(0)}% del total.",
+                      "${(localP * 100).toStringAsFixed(0)}% Local — ${(domP * 100).toStringAsFixed(0)}% Domicilio",
                       style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                     ),
                   ],
@@ -481,40 +802,194 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildConsultTile(String type, int amount, double progress) {
-    final icon = type == "Local" ? Icons.store : Icons.home_work;
+  // (El helper _buildConsultTile fue removido porque ahora se muestra la gráfica circular)
+
+  // Helper: leyenda para la gráfica circular
+  Widget _buildLegendItem(String label, int count, double portion, Color color) {
     return Row(
       children: [
-        Icon(icon, color: green, size: 24),
+        Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        Text('$count', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+        const SizedBox(width: 6),
+        Text('${(portion * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.black54)),
+      ],
+    );
+  }
+
+  // Pintor de la gráfica circular (pie chart) - la clase se define fuera de la clase del State
+
+  // -----------------------
+  // SECCIÓN: ESTADO DE CITAS
+  // Muestra un gráfico de barras horizontales con la cantidad de citas por estado
+  // (pendiente / atendida / cancelada). Respeta el filtro por rango de fechas.
+  Widget _buildStatusByStateSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.bar_chart, color: green, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              "Estado de citas",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildStatusByStateCard(),
+      ],
+    );
+  }
+
+  // Tarjeta con la gráfica de barras horizontales para los estados
+  Widget _buildStatusByStateCard() {
+    // colores de la gráfica según petición
+    const pendienteColor = Color(0xFFFFF3CD); // amarillo suave
+    const atendidaColor = Color(0xFF388E3C); // verde pedido
+    const canceladaColor = Color(0xFFFFCDD2); // rojo suave
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: green.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('appointments').snapshots(),
+        builder: (context, AsyncSnapshot<QuerySnapshot> snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snap.data?.docs ?? [];
+
+          // límites de fecha según filtros
+          DateTime? from;
+          DateTime? to;
+          if (startDate != null || endDate != null) {
+            from = startDate != null ? DateTime(startDate!.year, startDate!.month, startDate!.day) : DateTime.fromMillisecondsSinceEpoch(0);
+            to = endDate != null ? DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59) : DateTime.now().add(const Duration(days: 36500));
+          }
+
+          // contadores por estado
+          int pendientes = 0;
+          int atendidas = 0;
+          int canceladas = 0;
+
+          // filtrar y contar
+          for (final d in docs) {
+            final data = d.data() as Map<String, dynamic>;
+
+            // parseo robusto de fecha
+            DateTime fecha;
+            final rawFecha = data['fecha'];
+            if (rawFecha is Timestamp) {
+              fecha = rawFecha.toDate();
+            } else if (rawFecha is String) {
+              fecha = DateTime.tryParse(rawFecha) ?? DateTime.now();
+            } else if (rawFecha is DateTime) {
+              fecha = rawFecha;
+            } else {
+              fecha = DateTime.now();
+            }
+
+            // aplicar rango si existe
+            if (from != null && to != null) {
+              if (fecha.isBefore(from) || fecha.isAfter(to)) continue;
+            }
+
+            // leer estado y normalizar
+            final estadoRaw = (data['estado'] ?? '').toString().toLowerCase().trim();
+            if (estadoRaw.contains('pendiente')) {
+              pendientes++;
+            } else if (estadoRaw.contains('atendida') || estadoRaw.contains('atendido')) {
+              atendidas++;
+            } else if (estadoRaw.contains('cancelada') || estadoRaw.contains('cancelado')) {
+              canceladas++;
+            }
+          }
+
+          final total = pendientes + atendidas + canceladas;
+          // calcular proporciones evitando división por cero
+          final pPend = total > 0 ? pendientes / total : 0.0;
+          final pAtend = total > 0 ? atendidas / total : 0.0;
+          final pCanc = total > 0 ? canceladas / total : 0.0;
+
+          return Column(
+            children: [
+              _buildStatusTile('Pendiente', pendientes, pPend, pendienteColor),
+              const SizedBox(height: 12),
+              _buildStatusTile('Atendida', atendidas, pAtend, atendidaColor),
+              const SizedBox(height: 12),
+              _buildStatusTile('Cancelada', canceladas, pCanc, canceladaColor),
+              const SizedBox(height: 18),
+              // resumen y contexto
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Total de citas: $total', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  if (startDate != null && endDate != null)
+                    Text('Rango: ${_formatDate(startDate!)} - ${_formatDate(endDate!)}', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // Helper: fila con barra horizontal para cada estado
+  Widget _buildStatusTile(String label, int count, double portion, Color color) {
+    return Row(
+      children: [
+        SizedBox(width: 100, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(type, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
-              const SizedBox(height: 2),
-              Text("$amount citas", style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: portion,
+                  minHeight: 16,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('$count citas', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                  Text('${(portion * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
             ],
           ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 90,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation(green),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 35,
-          child: Text("${(progress * 100).toInt()}%", textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
         ),
       ],
     );
@@ -523,7 +998,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // BOTONES DE ACCIÓN
   Widget _buildActionButtons() {
     return Row(
-      children: [
+        children: [
         Expanded(
           child: OutlinedButton.icon(
             icon: const Icon(Icons.calendar_today, size: 20),
@@ -538,19 +1013,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.download, size: 20),
-            label: const Text("Exportar", style: TextStyle(fontSize: 14)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: green,
-              foregroundColor: Colors.white,
+        // Botón para limpiar el filtro de fechas (deshabilitado si no hay filtro)
+        SizedBox(
+          width: 130,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.clear, size: 20),
+            label: const Text("Limpiar", style: TextStyle(fontSize: 14)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade700,
+              side: BorderSide(color: Colors.red.shade200, width: 1.2),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
-              Get.snackbar("Exportando", "El reporte está siendo generado...", backgroundColor: green, colorText: Colors.white);
-            },
+            onPressed: startDate == null && endDate == null
+                ? null
+                : () {
+                    setState(() {
+                      // limpiar filtros de fecha
+                      startDate = null;
+                      endDate = null;
+                    });
+                  },
           ),
         ),
       ],

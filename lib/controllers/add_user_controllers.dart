@@ -31,10 +31,10 @@ class AddUserControllers extends GetxController {
       });
 
       Get.snackbar("Éxito", "Usuario registrado correctamente");
-      return true; // ✅ Registro exitoso
+      return true; 
     } catch (e) {
       Get.snackbar("Error", e.toString());
-      return false; // ❌ Hubo un error
+      return false; 
     }
   }
 

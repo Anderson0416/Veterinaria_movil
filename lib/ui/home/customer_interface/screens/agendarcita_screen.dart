@@ -181,9 +181,6 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
       print('Error obteniendo nombre del cliente: $e');
     }
 
-    // ------------------------------
-    // 🔥 CORRECCIÓN REALIZADA AQUÍ:
-    // ------------------------------
     final String direccionCita = modalidadSeleccionada == "Presencial"
         ? (direccionVeterinaria ?? "")
         : (direccionUsuario ?? "");
@@ -193,7 +190,6 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
     final double longitudCita =
         modalidadSeleccionada == "Presencial" ? clinicaLng! : ubicacionLng!;
-    // ------------------------------
 
     final cita = CitaModel(
       id: null,

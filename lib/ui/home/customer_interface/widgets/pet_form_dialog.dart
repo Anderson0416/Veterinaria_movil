@@ -23,6 +23,7 @@ class PetFormDialog extends StatefulWidget {
 class _PetFormDialogState extends State<PetFormDialog> {
   final nombreCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
+  DateTime? selectedFechaNacimiento;
 
   String? selectedTipoNombre;
   String? selectedRazaId;
@@ -48,15 +49,26 @@ class _PetFormDialogState extends State<PetFormDialog> {
     breedController = Get.find<BreedController>();
 
     nombreCtrl.text = widget.mascota?['nombre'] ?? '';
-    edadCtrl.text = widget.mascota?['edad'] ?? '';
+    final storedEdad = widget.mascota?['edad'];
+    if (storedEdad != null && storedEdad is String) {
+      // Try parse ISO datetime - if parsing fails keep the original string
+      try {
+        selectedFechaNacimiento = DateTime.parse(storedEdad);
+        edadCtrl.text = "${selectedFechaNacimiento!.day.toString().padLeft(2, '0')}/${selectedFechaNacimiento!.month.toString().padLeft(2, '0')}/${selectedFechaNacimiento!.year}";
+      } catch (e) {
+        edadCtrl.text = storedEdad;
+      }
+    } else {
+      edadCtrl.text = '';
+    }
 
-    // ✅ Cargar tipos y razas si es modo edición
+    // Cargar tipos y razas si es modo edición
     _loadTipos().then((_) async {
       if (widget.modoEditar) {
         selectedTipoNombre = widget.mascota?['tipo'];
         selectedRazaId = widget.mascota?['raza'];
 
-        // ✅ Buscar el tipo por nombre y cargar sus razas
+        // Buscar el tipo por nombre y cargar sus razas
         final tipoSeleccionado =
             tiposAnimales.firstWhereOrNull((t) => t.nombre == selectedTipoNombre);
 
@@ -64,7 +76,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
           await _loadRazas(tipoSeleccionado.id!);
         }
 
-        // ✅ Refrescar interfaz
+        //  Refrescar interfaz
         setState(() {});
       }
     });
@@ -103,7 +115,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ Nombre
+          
               TextField(
                 controller: nombreCtrl,
                 decoration: const InputDecoration(
@@ -113,7 +125,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
               ),
               const SizedBox(height: 10),
 
-              // ✅ Tipo (ComboBox) - Usa NOMBRE como valor
+
               DropdownButtonFormField<String>(
                 value: selectedTipoNombre,
                 decoration: const InputDecoration(
@@ -123,7 +135,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
                 items: tiposAnimales
                     .map(
                       (tipo) => DropdownMenuItem<String>(
-                        value: tipo.nombre, // ✅ usamos nombre, no ID
+                        value: tipo.nombre, 
                         child: Text(tipo.nombre),
                       ),
                     )
@@ -135,7 +147,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
                     razas.clear();
                   });
 
-                  // ✅ Buscamos el tipo por nombre para cargar sus razas
+                  
                   final tipoSeleccionado =
                       tiposAnimales.firstWhereOrNull((t) => t.nombre == value);
                   if (tipoSeleccionado != null) {
@@ -145,7 +157,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
               ),
               const SizedBox(height: 10),
 
-              // ✅ Raza (ComboBox filtrado)
+              
               DropdownButtonFormField<String>(
                 value: selectedRazaId,
                 decoration: const InputDecoration(
@@ -166,17 +178,40 @@ class _PetFormDialogState extends State<PetFormDialog> {
               ),
               const SizedBox(height: 10),
 
-              // ✅ Edad
-              TextField(
-                controller: edadCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Edad (ej. 2 años)",
-                  border: OutlineInputBorder(),
+             
+              // Fecha de nacimiento (selector)
+              GestureDetector(
+                onTap: () async {
+                  final hoy = DateTime.now();
+                  final firstDate = DateTime(hoy.year - 25); // mascotas no suelen ser más viejas
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedFechaNacimiento ?? hoy,
+                    firstDate: firstDate,
+                    lastDate: hoy,
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      selectedFechaNacimiento = picked;
+                      edadCtrl.text = "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+                    });
+                  }
+                },
+                child: AbsorbPointer(
+                  child: TextField(
+                    controller: edadCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Fecha de nacimiento",
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    readOnly: true,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
-              // ✅ Botones
+              
               Row(
                 children: [
                   Expanded(
@@ -196,11 +231,12 @@ class _PetFormDialogState extends State<PetFormDialog> {
                           if (widget.modoEditar &&
                               widget.mascota?['id'] != null) {
                             final id = widget.mascota!['id'] as String;
-                            final updatedPet = PetModel(
+                              final updatedPet = PetModel(
                               id: id,
                               nombre: nombreCtrl.text.trim(),
                               raza: selectedRazaId ?? '',
-                              edad: edadCtrl.text.trim(),
+                              // Guardamos fecha ISO si se seleccionó, si no guardamos el texto tal cual
+                              edad: selectedFechaNacimiento != null ? selectedFechaNacimiento!.toIso8601String() : edadCtrl.text.trim(),
                               tipo: selectedTipoNombre ?? '', // ✅ guarda nombre
                               duenoId: duenoId,
                             );
@@ -217,7 +253,7 @@ class _PetFormDialogState extends State<PetFormDialog> {
                             final newPet = PetModel(
                               nombre: nombreCtrl.text.trim(),
                               raza: selectedRazaId ?? '',
-                              edad: edadCtrl.text.trim(),
+                              edad: selectedFechaNacimiento != null ? selectedFechaNacimiento!.toIso8601String() : edadCtrl.text.trim(),
                               tipo: selectedTipoNombre ?? '', // ✅ guarda nombre
                               duenoId: duenoId,
                             );

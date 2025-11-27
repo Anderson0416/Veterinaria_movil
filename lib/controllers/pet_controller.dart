@@ -7,7 +7,7 @@ class PetController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔹 Obtener flujo de mascotas (para mostrar en tiempo real)
+  //Obtener flujo de mascotas (para mostrar en tiempo real)
   Stream<List<PetModel>> getPetsStream(String duenoId) {
     return _db
         .collection('pets')
@@ -20,7 +20,7 @@ class PetController extends GetxController {
     });
   }
 
-  // 🔹 Agregar nueva mascota
+  // Agregar nueva mascota
   Future<void> addPet(PetModel pet) async {
     try {
       final currentUser = _auth.currentUser;
@@ -36,7 +36,7 @@ class PetController extends GetxController {
     }
   }
 
-  // 🔹 Actualizar mascota
+  // Actualizar mascota
   Future<void> updatePet(String id, PetModel pet) async {
     try {
   await _db.collection('pets').doc(id).update(pet.toMap());
@@ -46,7 +46,7 @@ class PetController extends GetxController {
     }
   }
 
-  // 🔹 Eliminar mascota
+  // Eliminar mascota
   Future<void> deletePet(String id) async {
     try {
   await _db.collection('pets').doc(id).delete();
@@ -56,7 +56,7 @@ class PetController extends GetxController {
     }
   }
 
-  // 🔹 Obtener una mascota por ID
+  // Obtener una mascota por ID
   Future<PetModel?> getPetById(String id) async {
     try {
   final doc = await _db.collection('pets').doc(id).get();

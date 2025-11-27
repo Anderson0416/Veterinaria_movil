@@ -5,7 +5,7 @@ import 'package:veterinaria_movil/moldes/animal_type_model.dart';
 class AnimalTypeController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// 🔹 Obtiene todos los tipos de animales en tiempo real
+  /// Obtiene todos los tipos de animales en tiempo real
   Stream<List<AnimalTypeModel>> getAnimalTypesStream() {
     return _db.collection('animal_types').snapshots().map((snapshot) {
       return snapshot.docs
@@ -14,7 +14,7 @@ class AnimalTypeController extends GetxController {
     });
   }
 
-   /// 🔹 Obtiene todos los tipos de animales una sola vez (para formularios, etc.)
+   /// Obtiene todos los tipos de animales una sola vez (para formularios, etc.)
   Future<List<AnimalTypeModel>> getAnimalTypes() async {
     final snapshot = await _db.collection('animal_types').get();
     return snapshot.docs
@@ -22,7 +22,7 @@ class AnimalTypeController extends GetxController {
         .toList();
   }
 
-  /// 🔹 Agrega los tipos de animales por defecto (solo una vez)
+  /// Agrega los tipos de animales por defecto (solo una vez)
   Future<void> populateAnimalTypes() async {
     final tipos = [
       'Perro',

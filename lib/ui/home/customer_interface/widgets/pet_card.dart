@@ -22,6 +22,14 @@ class PetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String edadDisplay = edad;
+    // Intentar parsear si la edad es una fecha ISO para mostrarla formateada
+    try {
+      final parsed = DateTime.parse(edad);
+      edadDisplay = "Nac: ${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}";
+    } catch (_) {
+      // No es ISO, dejar el texto tal cual
+    }
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -69,7 +77,7 @@ class PetCard extends StatelessWidget {
                     ],
                   ),
                   Text(raza, style: const TextStyle(color: Colors.black54)),
-                  Text(edad, style: const TextStyle(color: Colors.black54)),
+                  Text(edadDisplay, style: const TextStyle(color: Colors.black54)),
                   const SizedBox(height: 8),
                   Row(
                     children: [

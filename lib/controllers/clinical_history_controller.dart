@@ -28,7 +28,7 @@ class ClinicalHistoryController extends GetxController {
     }
   }
 
-  // ✅ 1. Obtener TODO el historial de UNA mascota (de todas las veterinarias)
+  //  Obtener TODO el historial de UNA mascota (de todas las veterinarias)
   Stream<List<ClinicalHistoryModel>> getClinicalHistoryByPetId(String mascotaId) {
     return _db
         .collection('clinical_history')
@@ -40,7 +40,7 @@ class ClinicalHistoryController extends GetxController {
             .toList());
   }
 
-  // ✅ 2. Obtener historial de TODAS las mascotas de UNA veterinaria
+  //  Obtener historial de TODAS las mascotas de UNA veterinaria
   Stream<List<ClinicalHistoryModel>> getClinicalHistoryByVeterinaryId(String veterinariaId) {
     return _db
         .collection('clinical_history')
@@ -52,7 +52,7 @@ class ClinicalHistoryController extends GetxController {
             .toList());
   }
 
-  // ✅ 3. Obtener TODOS los historiales (para admin o búsqueda global)
+  // Obtener TODOS los historiales (para admin o búsqueda global)
   Stream<List<ClinicalHistoryModel>> getAllClinicalHistories() {
     return _db
         .collection('clinical_history')

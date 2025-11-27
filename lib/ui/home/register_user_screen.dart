@@ -14,7 +14,7 @@ class RegisterUserScreen extends StatelessWidget {
     final TextEditingController emailController = TextEditingController();
     final TextEditingController passController = TextEditingController();
 
-    // 👇 Recuperamos el tipo desde SelectUserScreen
+    // Recuperamos el tipo desde SelectUserScreen
     final args = Get.arguments ?? {};
     final roleType = args['type'] ?? 'cliente';
 

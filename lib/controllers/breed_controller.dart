@@ -5,7 +5,7 @@ import 'package:veterinaria_movil/moldes/breed_model.dart';
 class BreedController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// 🔹 Obtiene todas las razas
+  /// Obtiene todas las razas
   Stream<List<BreedModel>> getBreedsStream() {
     return _db.collection('breeds').snapshots().map((snapshot) {
       return snapshot.docs
@@ -14,7 +14,7 @@ class BreedController extends GetxController {
     });
   }
 
-   /// 🔹 Obtiene todas las razas asociadas a un tipo de animal específico
+   /// Obtiene todas las razas asociadas a un tipo de animal específico
   Future<List<BreedModel>> getBreedsByAnimalType(String animalTypeId) async {
     try {
       final snapshot = await _db
@@ -31,7 +31,7 @@ class BreedController extends GetxController {
     }
   }
 
-  /// 🔹 Carga las razas por defecto para todos los tipos
+  /// Carga las razas por defecto para todos los tipos
   Future<void> populateBreeds() async {
     final tiposSnapshot = await _db.collection('animal_types').get();
 
@@ -115,7 +115,7 @@ class BreedController extends GetxController {
           razas = ['Desconocido'];
       }
 
-      // 🔹 Insertar las razas correspondientes si no existen
+      // Insertar las razas correspondientes si no existen
       for (var raza in razas) {
         final existe = await _db
             .collection('breeds')

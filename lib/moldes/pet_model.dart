@@ -4,7 +4,7 @@ class PetModel {
   String raza;
   String edad;
   String tipo;
-  String duenoId; // 🔗 Relación con el dueño (cliente logueado)
+  String duenoId; // Relación con el dueño (cliente logueado)
 
   PetModel({
     this.id,
